@@ -23,6 +23,9 @@ TEST_SUITE("cert/crl") {
         REQUIRE(crl_result.success);
 
         auto parsed = parse_crl(ByteSpan(crl_result.value.der.data(), crl_result.value.der.size()));
+        if (!parsed.success) {
+            MESSAGE("CRL parse error: ", parsed.error);
+        }
         REQUIRE(parsed.success);
 
         CHECK(leaf_cert.is_revoked(parsed.value));
