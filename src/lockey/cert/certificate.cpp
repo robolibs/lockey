@@ -6,6 +6,8 @@
 #include <string_view>
 
 #include <lockey/cert/asn1_utils.hpp>
+#include <lockey/cert/asn1_writer.hpp>
+#include <lockey/cert/crl.hpp>
 #include <lockey/cert/parser.hpp>
 #include <lockey/cert/pem.hpp>
 #include <lockey/cert/trust_store.hpp>
@@ -447,6 +449,63 @@ bool Certificate::match_subject(const DistinguishedName &dn) const {
     return tbs_.subject.der() == dn.der();
 }
 
+bool Certificate::is_revoked(const Crl &crl) const {
+    for (const auto &entry : crl.revoked) {
+        if (entry.serial_number == tbs_.serial_number) {
+            return true;
+        }
+    }
+    return false;
+}
+
+std::vector<uint8_t> Certificate::fingerprint(lockey::hash::Algorithm algo) const {
+    auto result = lockey::hash::digest(algo, der_);
+    if (!result.success) {
+        return {};
+    }
+    return result.data;
+}
+
+void Certificate::print_info(std::ostream &os) const {
+    auto to_string_time = [](std::chrono::system_clock::time_point tp) {
+        auto t = std::chrono::system_clock::to_time_t(tp);
+        std::tm tm{};
+#if defined(_WIN32)
+        gmtime_s(&tm, &t);
+#else
+        gmtime_r(&t, &tm);
+#endif
+        std::ostringstream ss;
+        ss << std::put_time(&tm, "%Y-%m-%d %H:%M:%SZ");
+        return ss.str();
+    };
+
+    os << "Subject: " << tbs_.subject.to_string() << "\n";
+    os << "Issuer: " << tbs_.issuer.to_string() << "\n";
+    os << "Serial:";
+    for (auto byte : tbs_.serial_number) {
+        os << ' ' << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(byte);
+    }
+    os << std::dec << "\n";
+    os << "Validity:\n"
+       << "  Not Before: " << to_string_time(tbs_.validity.not_before) << "\n"
+       << "  Not After : " << to_string_time(tbs_.validity.not_after) << "\n";
+}
+
+std::string Certificate::to_json() const {
+    std::ostringstream oss;
+    oss << "{"
+        << "\"subject\":\"" << tbs_.subject.to_string() << "\","
+        << "\"issuer\":\"" << tbs_.issuer.to_string() << "\""
+        << "}";
+    return oss.str();
+}
+
+bool Certificate::equals_identity(const Certificate &other) const {
+    return tbs_.subject.der() == other.tbs_.subject.der() &&
+           tbs_.subject_public_key_info.public_key == other.tbs_.subject_public_key_info.public_key;
+}
+
 CertificateBoolResult Certificate::validate_chain(const std::vector<Certificate> &chain, const TrustStore &trust) const {
     std::vector<const Certificate *> order;
     order.push_back(this);
@@ -512,6 +571,18 @@ CertificateBoolResult Certificate::validate_chain(const std::vector<Certificate>
     }
 
     return CertificateBoolResult::ok(true);
+}
+
+std::vector<uint8_t> Certificate::public_key_der() const {
+    const auto &spki = tbs_.subject_public_key_info;
+    std::vector<std::vector<uint8_t>> fields;
+    auto oid = oid_for_signature(spki.algorithm.signature);
+    if (!oid) {
+        return {};
+    }
+    fields.push_back(der::encode_sequence(der::encode_oid(*oid)));
+    fields.push_back(der::encode_bit_string(ByteSpan(spki.public_key.data(), spki.public_key.size()), spki.unused_bits));
+    return der::encode_sequence(der::concat(fields));
 }
 
 } // namespace lockey::cert

@@ -5,38 +5,22 @@
 #include <optional>
 #include <utility>
 
+#include <lockey/cert/parser_utils.hpp>
+
 namespace lockey::cert {
+
+using detail::DerCursor;
+using detail::parse_algorithm_identifier;
+using detail::parse_extensions;
+using detail::parse_name;
+using detail::parse_subject_public_key_info;
+using detail::parse_time_choice;
 
 namespace {
 
 struct ValidityRange {
     std::chrono::system_clock::time_point not_before{};
     std::chrono::system_clock::time_point not_after{};
-};
-
-class DerCursor {
-  public:
-    explicit DerCursor(ByteSpan span) : data_(span) {}
-
-    ByteSpan remaining() const {
-        return data_.subspan(offset_);
-    }
-
-    bool empty() const {
-        return offset_ >= data_.size();
-    }
-
-    bool advance(size_t count) {
-        if (offset_ + count > data_.size()) {
-            return false;
-        }
-        offset_ += count;
-        return true;
-    }
-
-  private:
-    ByteSpan data_;
-    size_t offset_{0};
 };
 
 std::vector<uint8_t> copy_bytes(ByteSpan span) {

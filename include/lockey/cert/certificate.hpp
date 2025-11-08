@@ -12,6 +12,7 @@
 #include <lockey/cert/asn1_common.hpp>
 #include <lockey/cert/asn1_utils.hpp>
 #include <lockey/cert/distinguished_name.hpp>
+#include <lockey/hash/algorithms.hpp>
 #include <lockey/crypto/context.hpp>
 
 namespace lockey::cert {
@@ -58,6 +59,7 @@ template <typename T> struct CertificateResult {
 };
 
 class Certificate;
+class Crl;
 
 using CertificateParseResult = CertificateResult<Certificate>;
 using CertificateChainResult = CertificateResult<std::vector<Certificate>>;
@@ -254,7 +256,15 @@ class Certificate {
     bool verify_extensions(CertificatePurpose purpose) const;
     bool match_hostname(std::string_view hostname) const;
     bool match_subject(const DistinguishedName &dn) const;
+    bool is_revoked(const Crl &crl) const;
     CertificateBoolResult validate_chain(const std::vector<Certificate> &chain, const TrustStore &trust) const;
+
+    std::vector<uint8_t> public_key_der() const;
+    std::vector<uint8_t> fingerprint(lockey::hash::Algorithm algo) const;
+    void print_info(std::ostream &os) const;
+    std::string to_json() const;
+    bool operator==(const Certificate &other) const noexcept { return der_ == other.der_; }
+    bool equals_identity(const Certificate &other) const;
 
   private:
     TBSCertificate tbs_{};

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <chrono>
 #include <cstdint>
 #include <string>
 #include <string_view>
@@ -25,7 +26,9 @@ std::vector<uint8_t> encode_ia5_string(std::string_view str);
 std::vector<uint8_t> encode_utctime(const std::string &view);
 std::vector<uint8_t> encode_generalized_time(const std::string &view);
 
+std::string format_time(std::chrono::system_clock::time_point tp, bool utc_time);
+std::vector<uint8_t> serialize_time(std::chrono::system_clock::time_point tp);
+
 std::vector<uint8_t> concat(const std::vector<std::vector<uint8_t>> &parts);
 
 } // namespace lockey::cert::der
-

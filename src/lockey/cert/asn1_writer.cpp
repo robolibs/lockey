@@ -2,6 +2,8 @@
 
 #include <algorithm>
 #include <array>
+#include <iomanip>
+#include <sstream>
 
 namespace lockey::cert::der {
 
@@ -179,6 +181,40 @@ std::vector<uint8_t> encode_utctime(const std::string &view) {
 
 std::vector<uint8_t> encode_generalized_time(const std::string &view) {
     return encode_time_string(view, ASN1Tag::GeneralizedTime);
+}
+
+std::string format_time(std::chrono::system_clock::time_point tp, bool utc_time) {
+    auto t = std::chrono::system_clock::to_time_t(tp);
+    std::tm tm{};
+#if defined(_WIN32)
+    gmtime_s(&tm, &t);
+#else
+    gmtime_r(&t, &tm);
+#endif
+    std::ostringstream oss;
+    oss << std::setfill('0');
+    if (utc_time) {
+        oss << std::setw(2) << ((tm.tm_year + 1900) % 100);
+    } else {
+        oss << std::setw(4) << (tm.tm_year + 1900);
+    }
+    oss << std::setw(2) << (tm.tm_mon + 1) << std::setw(2) << tm.tm_mday << std::setw(2) << tm.tm_hour << std::setw(2)
+        << tm.tm_min << std::setw(2) << tm.tm_sec << 'Z';
+    return oss.str();
+}
+
+std::vector<uint8_t> serialize_time(std::chrono::system_clock::time_point tp) {
+    auto t = std::chrono::system_clock::to_time_t(tp);
+    std::tm tm{};
+#if defined(_WIN32)
+    gmtime_s(&tm, &t);
+#else
+    gmtime_r(&t, &tm);
+#endif
+    const int year = tm.tm_year + 1900;
+    const bool use_utc = (year >= 1950 && year <= 2049);
+    auto formatted = format_time(tp, use_utc);
+    return use_utc ? encode_utctime(formatted) : encode_generalized_time(formatted);
 }
 
 } // namespace lockey::cert::der
