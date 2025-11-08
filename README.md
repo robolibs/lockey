@@ -2,7 +2,7 @@
 
 # Lockey
 
-**A tiny, header-only C++20 facade over libsodium primitives**
+**A tiny, header-only C++20 libsodium facade with an Ed25519-focused X.509 toolkit**
 
 [![Build Status](https://img.shields.io/badge/build-passing-brightgreen)](https://github.com/yourusername/lockey)
 [![Language](https://img.shields.io/badge/language-C%2B%2B20-blue)](https://en.cppreference.com/w/cpp/20)
@@ -11,18 +11,89 @@
 
 ## Overview
 
-Lockey wraps the battle-tested **libsodium** toolbox in a clean, zero-dependency C++20 API. Only modern, authenticated primitives make the cut: XChaCha20-Poly1305, SecretBox (XSalsa20-Poly1305), X25519 sealed boxes, Ed25519 signatures, and SHA-256/SHA-512/BLAKE2b (plus HMAC). No RSA, no ECDSA, no legacy baggage — just high-level helpers around the safe defaults you actually want.
+Lockey wraps the battle-tested **libsodium** toolbox in a clean, zero-dependency C++20 API. Only modern, authenticated primitives make the cut: XChaCha20-Poly1305, SecretBox (XSalsa20-Poly1305), X25519 sealed boxes, Ed25519 signatures, and SHA-256/SHA-512/BLAKE2b (plus HMAC). No RSA, no ECDSA, no legacy baggage - just high-level helpers around the safe defaults you actually want.
 
 ### 🚀 Key Features
 
-- **libsodium-only backend** – every operation delegates to libsodium and calls `sodium_init()` exactly once.
-- **Header-only** – include `lockey/lockey.hpp` and go.
-- **Modern AEAD options** – XChaCha20-Poly1305 and SecretBox XSalsa20-Poly1305 for symmetric encryption.
-- **Curve25519 everywhere** – X25519 sealed boxes for public-key encryption and Ed25519 for signatures.
-- **Hashing & HMAC** – SHA-256, SHA-512, and BLAKE2b via libsodium.
-- **Key utilities** – raw key generation, simple file I/O helpers, and hex conversion helpers for debugging.
-- **Robust exchange envelopes** – serialize/libsodium-seal payloads for files or shared memory with integrity checks.
-- **Modular namespaces** – `lockey::crypto`, `lockey::hash`, `lockey::io`, and `lockey::utils` mirror the on-disk layout for easier integration.
+- **libsodium-only backend** - every operation delegates to libsodium and calls `sodium_init()` exactly once.
+- **Header-only** - include `lockey/lockey.hpp` and go.
+- **Modern AEAD options** - XChaCha20-Poly1305 and SecretBox XSalsa20-Poly1305 for symmetric encryption.
+- **Curve25519 everywhere** - X25519 sealed boxes for public-key encryption and Ed25519 for signatures.
+- **Hashing & HMAC** - SHA-256, SHA-512, and BLAKE2b via libsodium.
+- **Full DER/PEM X.509 stack** - strict ASN.1 parsers, builders, CSRs, CRLs, and trust stores all live under `lockey::cert`.
+- **Key utilities** - raw key generation, simple file I/O helpers, and hex conversion helpers for debugging.
+- **Robust exchange envelopes** - serialize/libsodium-seal payloads for files or shared memory with integrity checks.
+- **Modular namespaces** - `lockey::crypto`, `lockey::hash`, `lockey::io`, `lockey::utils`, and `lockey::cert` mirror the on-disk layout for easier integration.
+
+## Modules at a Glance
+
+- `lockey::crypto` - symmetric/asymmetric crypto context that wraps libsodium (XChaCha20-Poly1305, SecretBox, X25519 sealed boxes, Ed25519 signing).
+- `lockey::hash` - stateless hashing/HMAC helpers that expose SHA-256/SHA-512/BLAKE2b via a consistent API.
+- `lockey::utils` - common helpers (random bytes, hex, PKCS#7, constant-time comparisons, hex encoding).
+- `lockey::io` - binary I/O helpers plus the key-exchange envelope helpers for files/shared memory.
+- `lockey::cert` - DER/PEM aware X.509 stack: ASN.1 readers/writers, certificate/CSR/CRL builders, parsers, trust store loader, Ed25519 SPKI helpers, and OID registry.
+
+## X.509 Toolkit Highlights
+
+```cpp
+#include "lockey/cert/certificate.hpp"
+#include "lockey/cert/trust_store.hpp"
+
+using lockey::cert::Certificate;
+using lockey::cert::TrustStore;
+
+auto chain = Certificate::load("certs/leaf_and_issuer.pem");
+auto trust = TrustStore::load_from_system();
+if (chain.success && trust.success) {
+    const auto &leaf = chain.value.front();
+    std::vector<Certificate> intermediates(chain.value.begin() + 1, chain.value.end());
+    auto verdict = leaf.validate_chain(intermediates, trust.value);
+    if (verdict.success && verdict.value) {
+        std::cout << "Chain ok, fingerprint: "
+                  << lockey::utils::to_hex(leaf.fingerprint(lockey::hash::Algorithm::SHA256)) << "\n";
+    }
+}
+```
+
+### Build Ed25519 leaf or CA certs (and CSRs) in pure C++
+
+```cpp
+#include "lockey/cert/builder.hpp"
+#include "lockey/cert/csr_builder.hpp"
+#include "lockey/cert/key_utils.hpp"
+
+auto issuer = lockey::cert::generate_ed25519_keypair();
+auto subject = lockey::cert::generate_ed25519_keypair();
+
+lockey::cert::CertificateBuilder builder;
+builder.set_subject_from_string("CN=Lockey Dev,O=Lockey")
+       .set_subject_public_key_ed25519(subject.public_key)
+       .set_validity(std::chrono::system_clock::now(),
+                     std::chrono::system_clock::now() + std::chrono::hours(24 * 365))
+       .set_basic_constraints(false, std::nullopt)
+       .set_key_usage(lockey::cert::KeyUsageExtension::DigitalSignature);
+auto cert = builder.build_ed25519(issuer, /*self_signed=*/true);
+
+lockey::cert::CsrBuilder csr;
+auto csr_doc = csr.set_subject_from_string("CN=Lockey Client,O=Lockey")
+                  .set_subject_public_key_ed25519(subject.public_key)
+                  .build_ed25519(subject);
+```
+
+### Capture revocations and integrate custom trust stores
+
+```cpp
+#include "lockey/cert/crl_builder.hpp"
+
+lockey::cert::CrlBuilder crl;
+crl.set_issuer_from_string("CN=Lockey CA")
+   .set_this_update(std::chrono::system_clock::now())
+   .add_revoked(cert.value.tbs().serial_number,
+                std::chrono::system_clock::now(),
+                lockey::cert::CrlReason::KeyCompromise);
+auto crl_doc = crl.build_ed25519(issuer);
+bool revoked = cert.value.is_revoked(crl_doc.value);
+```
 
 ## Quick Start
 
@@ -148,18 +219,29 @@ auto opened = lockey::io::key_exchange::consume_envelope(envelope, recipient.pri
 ## Building & Testing
 
 ```bash
+# CMake-only workflow
 cmake -S . -B build -DLOCKEY_BUILD_EXAMPLES=ON -DLOCKEY_ENABLE_TESTS=ON
 cmake --build build
 cd build && ctest --output-on-failure
+
+# Or use the convenience targets
+make config   # configures with tests/examples enabled
+make          # builds everything under ./build
+make test     # wraps ctest
 ```
+
+- All tests live in [`test/`](test/) and are Doctest executables (`test_cert_parser.cpp`, `test_cert_crl.cpp`, `test_cert_generation.cpp`, etc.) covering ASN.1 parsing, certificate/CSR/CRL builders, trust stores, key exchange envelopes, and the crypto facade.
+- `LOCKEY_ENABLE_TESTS` turns each file into its own binary so you can run focused suites (e.g., `./build/test_cert_chain`).
+- `LOCKEY_BUILD_EXAMPLES` exposes the snippets in [`examples/`](examples/) - handy for stepping through debugger sessions.
+- You only need libsodium on your system; everything else is header-only.
 
 ## Examples
 
 All examples live in [`examples/`](examples/) and mirror the API described above:
 
-- `main.cpp` – walk-through of symmetric encryption, hashing, signing, and POJO utilities.
-- `test_comprehensive.cpp` – exercises every libsodium-backed primitive end-to-end.
-- `test_lockey.cpp` – smallest possible smoke test.
+- `main.cpp` - walk-through of symmetric encryption, hashing, signing, and POJO utilities.
+- `test_comprehensive.cpp` - exercises every libsodium-backed primitive end-to-end.
+- `test_lockey.cpp` - smallest possible smoke test.
 
 ## License
 
