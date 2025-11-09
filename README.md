@@ -95,6 +95,15 @@ auto crl_doc = crl.build_ed25519(issuer);
 bool revoked = cert.value.is_revoked(crl_doc.value);
 ```
 
+### X.509 User Guide
+
+Looking for a longer-form explanation of the certificate APIs? See [`docs/X509_USER_GUIDE.md`](docs/X509_USER_GUIDE.md) for:
+
+- A conceptual refresher on TBSCertificate layout and ASN.1 primitives
+- Step-by-step instructions for generating certificates/CSRs
+- Chain validation and trust store management walkthroughs
+- Security checklists tailored to Lockey's Ed25519-first design
+
 ## Quick Start
 
 ```cpp
@@ -242,6 +251,13 @@ All examples live in [`examples/`](examples/) and mirror the API described above
 - `main.cpp` - walk-through of symmetric encryption, hashing, signing, and POJO utilities.
 - `test_comprehensive.cpp` - exercises every libsodium-backed primitive end-to-end.
 - `test_lockey.cpp` - smallest possible smoke test.
+- `cert_generate_self_signed.cpp` - build and persist a self-signed Ed25519 certificate in pure C++.
+- `cert_generate_ca.cpp` - create a constrained CA certificate with Basic Constraints and CA key usages set.
+- `csr_generate.cpp` - emit a PEM-encoded CSR using `CsrBuilder`.
+- `cert_sign_csr.cpp` - issue a leaf certificate from a CA using the CSR's subject/SPKI.
+- `cert_verify_chain.cpp` - assemble a root/intermediate/leaf stack and validate it with `TrustStore`.
+- `cert_parse_and_print.cpp` - load any PEM (or generate one) and dump subject, issuer, and fingerprint data.
+- `trust_store_usage.cpp` - add/remove anchors and locate issuers programmatically.
 
 ## License
 
