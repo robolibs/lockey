@@ -2,8 +2,8 @@
 
 #include "cert_test_helpers.hpp"
 
-#include <lockey/cert/csr_builder.hpp>
 #include <lockey/cert/crl_builder.hpp>
+#include <lockey/cert/csr_builder.hpp>
 #include <lockey/cert/trust_store.hpp>
 
 TEST_SUITE("cert/vectors") {
@@ -14,18 +14,21 @@ TEST_SUITE("cert/vectors") {
         auto cert1 = cert_test::make_self_signed_certificate_with_key(dn, key, 123);
         auto cert2 = cert_test::make_self_signed_certificate_with_key(dn, key, 123);
         CHECK(cert1.der() == cert2.der());
-        CHECK(cert1.fingerprint(lockey::hash::Algorithm::SHA256) ==
-              cert2.fingerprint(lockey::hash::Algorithm::SHA256));
+        CHECK(cert1.fingerprint(lockey::hash::Algorithm::SHA256) == cert2.fingerprint(lockey::hash::Algorithm::SHA256));
     }
 
     TEST_CASE("chain/csr/crl vector generation") {
         using namespace lockey::cert;
         lockey::crypto::Lockey::KeyPair root_key, intermediate_key, leaf_key;
         auto [root, intermediate, leaf] = cert_test::make_chain(root_key, intermediate_key, leaf_key);
-        CHECK(leaf.validate_chain({intermediate}, TrustStore{}).success == false);
+        // Validation should succeed but return false (not valid) with empty trust store
+        auto validation = leaf.validate_chain({intermediate}, TrustStore{});
+        CHECK(validation.success == true);
+        CHECK(validation.value == false);
 
         CsrBuilder csr_builder;
-        csr_builder.set_subject(leaf.tbs().subject).set_subject_public_key_ed25519(leaf.tbs().subject_public_key_info.public_key);
+        csr_builder.set_subject(leaf.tbs().subject)
+            .set_subject_public_key_ed25519(leaf.tbs().subject_public_key_info.public_key);
         auto csr = csr_builder.build_ed25519(leaf_key);
         REQUIRE(csr.success);
 

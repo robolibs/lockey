@@ -80,7 +80,12 @@ namespace lockey::cert {
         CertificatePolicies,
         CRLDistributionPoints,
         AuthorityInfoAccess,
-        NameConstraints
+        NameConstraints,
+        // Enterprise extensions (Phase 13)
+        IssuerAltName,     // 2.5.29.18
+        PolicyMappings,    // 2.5.29.33
+        PolicyConstraints, // 2.5.29.36
+        InhibitAnyPolicy   // 2.5.29.54
     };
 
     // CRL Entry Extension IDs (extensions within revoked certificate entries)

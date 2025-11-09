@@ -8,9 +8,9 @@
 
 #include <lockey/cert/asn1_utils.hpp>
 #include <lockey/cert/asn1_writer.hpp>
-#include <lockey/cert/parser_utils.hpp>
 #include <lockey/cert/crl.hpp>
 #include <lockey/cert/parser.hpp>
+#include <lockey/cert/parser_utils.hpp>
 #include <lockey/cert/pem.hpp>
 #include <lockey/cert/trust_store.hpp>
 #include <lockey/io/files.hpp>
@@ -216,44 +216,44 @@ namespace lockey::cert {
         return *it;
     }
 
-std::optional<bool> Certificate::basic_constraints_ca() const {
-    auto ext = find_extension(ExtensionId::BasicConstraints);
-    if (!ext) {
-        return std::nullopt;
+    std::optional<bool> Certificate::basic_constraints_ca() const {
+        auto ext = find_extension(ExtensionId::BasicConstraints);
+        if (!ext) {
+            return std::nullopt;
+        }
+        auto seq = parse_sequence(ByteSpan(ext->value.data(), ext->value.size()));
+        if (!seq.success) {
+            return std::nullopt;
+        }
+        detail::DerCursor cursor(seq.value);
+        if (cursor.empty()) {
+            return false;
+        }
+        auto bool_res = parse_boolean(cursor.remaining());
+        if (!bool_res.success) {
+            return std::nullopt;
+        }
+        return bool_res.value;
     }
-    auto seq = parse_sequence(ByteSpan(ext->value.data(), ext->value.size()));
-    if (!seq.success) {
-        return std::nullopt;
-    }
-    detail::DerCursor cursor(seq.value);
-    if (cursor.empty()) {
-        return false;
-    }
-    auto bool_res = parse_boolean(cursor.remaining());
-    if (!bool_res.success) {
-        return std::nullopt;
-    }
-    return bool_res.value;
-}
 
-std::optional<uint32_t> Certificate::basic_constraints_path_length() const {
-    auto ext = find_extension(ExtensionId::BasicConstraints);
-    if (!ext) {
-        return std::nullopt;
-    }
-    auto seq = parse_sequence(ByteSpan(ext->value.data(), ext->value.size()));
-    if (!seq.success) {
-        return std::nullopt;
-    }
-    detail::DerCursor cursor(seq.value);
-    auto bool_res = parse_boolean(cursor.remaining());
-    if (bool_res.success) {
-        cursor.advance(bool_res.bytes_consumed);
-    }
-    if (cursor.empty()) {
-        return std::nullopt;
-    }
-    auto int_res = parse_integer(cursor.remaining());
+    std::optional<uint32_t> Certificate::basic_constraints_path_length() const {
+        auto ext = find_extension(ExtensionId::BasicConstraints);
+        if (!ext) {
+            return std::nullopt;
+        }
+        auto seq = parse_sequence(ByteSpan(ext->value.data(), ext->value.size()));
+        if (!seq.success) {
+            return std::nullopt;
+        }
+        detail::DerCursor cursor(seq.value);
+        auto bool_res = parse_boolean(cursor.remaining());
+        if (bool_res.success) {
+            cursor.advance(bool_res.bytes_consumed);
+        }
+        if (cursor.empty()) {
+            return std::nullopt;
+        }
+        auto int_res = parse_integer(cursor.remaining());
         if (!int_res.success) {
             return std::nullopt;
         }
@@ -329,6 +329,202 @@ std::optional<uint32_t> Certificate::basic_constraints_path_length() const {
             offset += header.bytes_consumed;
         }
         return names;
+    }
+
+    // Phase 13: Enterprise Extensions Implementation
+
+    std::vector<IssuerAltNameExtension::GeneralName> Certificate::issuer_alt_names() const {
+        std::vector<IssuerAltNameExtension::GeneralName> names;
+        auto ext = find_extension(ExtensionId::IssuerAltName);
+        if (!ext) {
+            return names;
+        }
+
+        // IAN has same structure as SAN (GeneralNames SEQUENCE)
+        auto seq = parse_sequence(ByteSpan(ext->value.data(), ext->value.size()));
+        if (!seq.success) {
+            return names;
+        }
+
+        size_t offset = 0;
+        auto view = seq.value;
+        while (offset < view.size()) {
+            auto header = parse_id_len(view.subspan(offset));
+            if (!header.success) {
+                break;
+            }
+            const auto &id = header.value.identifier;
+            if (id.tag_class != ASN1Class::ContextSpecific) {
+                break;
+            }
+            auto content = view.subspan(offset + header.value.header_bytes, header.value.length);
+            IssuerAltNameExtension::GeneralName name{};
+            switch (id.tag_number) {
+            case 1: // rfc822Name
+                name.type = IssuerAltNameExtension::GeneralNameType::Email;
+                name.value.assign(reinterpret_cast<const char *>(content.data()), content.size());
+                break;
+            case 2: // dNSName
+                name.type = IssuerAltNameExtension::GeneralNameType::DNSName;
+                name.value.assign(reinterpret_cast<const char *>(content.data()), content.size());
+                break;
+            case 6: // uniformResourceIdentifier
+                name.type = IssuerAltNameExtension::GeneralNameType::URI;
+                name.value.assign(reinterpret_cast<const char *>(content.data()), content.size());
+                break;
+            case 7: // iPAddress
+                name.type = IssuerAltNameExtension::GeneralNameType::IPAddress;
+                name.value.assign(reinterpret_cast<const char *>(content.data()), content.size());
+                break;
+            default: // otherName, x400Address, directoryName, ediPartyName, registeredID
+                name.type = IssuerAltNameExtension::GeneralNameType::Other;
+                name.value.assign(reinterpret_cast<const char *>(content.data()), content.size());
+                break;
+            }
+            names.push_back(std::move(name));
+            offset += header.bytes_consumed;
+        }
+        return names;
+    }
+
+    std::vector<PolicyMappingsExtension::PolicyMapping> Certificate::policy_mappings() const {
+        std::vector<PolicyMappingsExtension::PolicyMapping> mappings;
+        auto ext = find_extension(ExtensionId::PolicyMappings);
+        if (!ext) {
+            return mappings;
+        }
+
+        // MUST be critical per RFC 5280 (but we're lenient)
+        auto seq = parse_sequence(ByteSpan(ext->value.data(), ext->value.size()));
+        if (!seq.success) {
+            return mappings;
+        }
+
+        size_t offset = 0;
+        auto view = seq.value;
+        while (offset < view.size()) {
+            // Each mapping is a SEQUENCE { issuerDomainPolicy, subjectDomainPolicy }
+            auto mapping_seq = parse_sequence(view.subspan(offset));
+            if (!mapping_seq.success) {
+                break;
+            }
+
+            size_t mapping_offset = 0;
+            auto mapping_view = mapping_seq.value;
+
+            // Parse issuerDomainPolicy (OID)
+            auto issuer_oid = parse_oid(mapping_view.subspan(mapping_offset));
+            if (!issuer_oid.success) {
+                break;
+            }
+            mapping_offset += issuer_oid.bytes_consumed;
+
+            // Parse subjectDomainPolicy (OID)
+            auto subject_oid = parse_oid(mapping_view.subspan(mapping_offset));
+            if (!subject_oid.success) {
+                break;
+            }
+
+            PolicyMappingsExtension::PolicyMapping mapping{};
+            mapping.issuer_domain_policy = issuer_oid.value.nodes;
+            mapping.subject_domain_policy = subject_oid.value.nodes;
+            mappings.push_back(std::move(mapping));
+
+            offset += mapping_seq.bytes_consumed;
+        }
+        return mappings;
+    }
+
+    std::optional<PolicyConstraintsExtension> Certificate::policy_constraints() const {
+        auto ext = find_extension(ExtensionId::PolicyConstraints);
+        if (!ext) {
+            return std::nullopt;
+        }
+
+        // MUST be critical per RFC 5280
+        auto seq = parse_sequence(ByteSpan(ext->value.data(), ext->value.size()));
+        if (!seq.success) {
+            return std::nullopt;
+        }
+
+        std::optional<uint32_t> require_explicit_policy;
+        std::optional<uint32_t> inhibit_policy_mapping;
+
+        size_t offset = 0;
+        auto view = seq.value;
+
+        // Try to parse requireExplicitPolicy [0] IMPLICIT INTEGER OPTIONAL
+        if (offset < view.size()) {
+            auto header = parse_id_len(view.subspan(offset));
+            if (header.success && header.value.identifier.tag_class == ASN1Class::ContextSpecific &&
+                header.value.identifier.tag_number == 0) {
+                auto content = view.subspan(offset + header.value.header_bytes, header.value.length);
+                if (content.size() >= 1 && content.size() <= 4) {
+                    uint32_t value = 0;
+                    for (size_t i = 0; i < content.size(); ++i) {
+                        value = (value << 8) | content[i];
+                    }
+                    require_explicit_policy = value;
+                }
+                offset += header.bytes_consumed;
+            }
+        }
+
+        // Try to parse inhibitPolicyMapping [1] IMPLICIT INTEGER OPTIONAL
+        if (offset < view.size()) {
+            auto header = parse_id_len(view.subspan(offset));
+            if (header.success && header.value.identifier.tag_class == ASN1Class::ContextSpecific &&
+                header.value.identifier.tag_number == 1) {
+                auto content = view.subspan(offset + header.value.header_bytes, header.value.length);
+                if (content.size() >= 1 && content.size() <= 4) {
+                    uint32_t value = 0;
+                    for (size_t i = 0; i < content.size(); ++i) {
+                        value = (value << 8) | content[i];
+                    }
+                    inhibit_policy_mapping = value;
+                }
+            }
+        }
+
+        // RFC 5280: MUST NOT issue certificates where policyConstraints is an empty sequence
+        if (!require_explicit_policy && !inhibit_policy_mapping) {
+            return std::nullopt;
+        }
+
+        return PolicyConstraintsExtension(ext->critical, require_explicit_policy, inhibit_policy_mapping);
+    }
+
+    std::optional<uint32_t> Certificate::inhibit_any_policy() const {
+        auto ext = find_extension(ExtensionId::InhibitAnyPolicy);
+        if (!ext) {
+            return std::nullopt;
+        }
+
+        // MUST be critical per RFC 5280
+        // Extension value is just a plain INTEGER (SkipCerts)
+        auto int_result = parse_integer(ByteSpan(ext->value.data(), ext->value.size()));
+        if (!int_result.success) {
+            return std::nullopt;
+        }
+
+        // Convert bytes to uint32_t
+        const auto &int_bytes = int_result.value;
+        if (int_bytes.size() > 4) {
+            return std::nullopt; // Too large
+        }
+
+        uint32_t value = 0;
+        for (uint8_t byte : int_bytes) {
+            value = (value << 8) | byte;
+        }
+
+        // RFC 5280: Reasonable limit (x509-parser uses 64)
+        constexpr uint32_t MAX_SKIP_CERTS = 64;
+        if (value > MAX_SKIP_CERTS) {
+            return std::nullopt;
+        }
+
+        return value;
     }
 
     bool Certificate::verify_key_usage(uint16_t required_bits) const {
