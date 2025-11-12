@@ -36,9 +36,7 @@ int main(int argc, char *argv[]) {
 
     auto cert = cert_result.value[0];
     std::cout << "Certificate loaded successfully\n";
-    std::cout << "Subject: ";
-    cert.tbs().subject.print(std::cout);
-    std::cout << "\n\n";
+    std::cout << "Subject: " << cert.tbs().subject.to_string() << "\n\n";
 
     // Configure gRPC client
     std::cout << "Connecting to verification server: " << server_addr << "\n";
