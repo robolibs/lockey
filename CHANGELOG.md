@@ -1,5 +1,47 @@
 # Changelog
 
+## [0.3.0] - 2025-11-12
+
+### <!-- 0 -->⛰️  Features
+
+- Add Lockey Verification Protocol (LVP) support
+- Implement gRPC certificate verification service
+- Feat: Add gRPC verification server with revocation and signing
+- Implement synchronous generic gRPC stub with callbacks
+- Add gRPC-based certificate revocation verification
+- Feat: Add Extended Key Usage (EKU) X.509 certificate extension
+- Add enterprise PKI extension examples
+- Implement X.509 enterprise certificate extensions parsing
+- Add certificate chain and vector generation helpers
+- Implement comprehensive CRL parsing and validation
+- Implement comprehensive X.509 certificate management
+- Feat: Add X.509 certificate and ASN.1 DER support
+- Switched to using libsodium as backend
+
+### <!-- 1 -->🐛 Bug Fixes
+
+- Refactor gRPC verification for Abseil logging and simplicity
+- Certificate and CRL builders for error handling
+
+### <!-- 2 -->🚜 Refactor
+
+- Upgrade certificate version to 3 across examples and tests
+- Modularize Lockey codebase with namespaces
+
+### <!-- 3 -->📚 Documentation
+
+- Add C++ Lockey Verification Protocol server and docs
+- Add comprehensive X.509 certificate management examples
+- Feat: Add X.509 toolkit and certificate integration tests
+
+### <!-- 6 -->🧪 Testing
+
+- Add comprehensive certificate and ASN.1 test suite
+
+### <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Enable gRPC support and update dependencies
+
 ## [0.2.0] - 2025-06-12
 
 ### <!-- 0 -->⛰️  Features
