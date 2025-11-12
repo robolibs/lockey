@@ -70,7 +70,7 @@ TEST_CASE("SimpleRevocationHandler - Verify Chain") {
     auto not_after = not_before + std::chrono::hours(24 * 365);
 
     cert::CertificateBuilder ca_builder;
-    ca_builder.set_version(2)
+    ca_builder.set_version(3)
         .set_serial(1)
         .set_subject(dn_result.value)
         .set_issuer(dn_result.value)
@@ -157,7 +157,7 @@ TEST_CASE("Server - Construction and Configuration") {
         auto not_after = not_before + std::chrono::hours(24 * 365);
 
         cert::CertificateBuilder builder;
-        builder.set_version(2)
+        builder.set_version(3)
             .set_serial(1)
             .set_subject(dn_result.value)
             .set_issuer(dn_result.value)
@@ -210,7 +210,7 @@ TEST_CASE("Server-Client Integration") {
     auto not_after = not_before + std::chrono::hours(24 * 365);
 
     cert::CertificateBuilder builder;
-    builder.set_version(2)
+    builder.set_version(3)
         .set_serial(1)
         .set_subject(dn_result.value)
         .set_issuer(dn_result.value)

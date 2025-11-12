@@ -83,7 +83,7 @@ int main(int argc, char *argv[]) {
         auto not_after = not_before + std::chrono::hours(24 * 365); // 1 year
 
         lockey::cert::CertificateBuilder builder;
-        builder.set_version(2)
+        builder.set_version(3)  // v3 required for extensions
             .set_serial(1)
             .set_subject(dn_result.value)
             .set_issuer(dn_result.value)
