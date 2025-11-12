@@ -663,7 +663,7 @@ namespace lockey::cert {
     std::vector<uint8_t> Certificate::fingerprint(lockey::hash::Algorithm algo) const {
         auto result = lockey::hash::digest(algo, der_);
         if (!result.success) {
-            return {};
+            throw std::runtime_error("Failed to compute certificate fingerprint: " + result.error_message);
         }
         return result.data;
     }
@@ -786,7 +786,7 @@ namespace lockey::cert {
         std::vector<std::vector<uint8_t>> fields;
         auto oid = oid_for_signature(spki.algorithm.signature);
         if (!oid) {
-            return {};
+            throw std::runtime_error("Failed to get OID for signature algorithm in subject public key info");
         }
         fields.push_back(der::encode_sequence(der::encode_oid(*oid)));
         fields.push_back(

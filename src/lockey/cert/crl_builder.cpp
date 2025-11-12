@@ -122,7 +122,7 @@ namespace lockey::cert {
         alg.signature = SignatureAlgorithmId::Ed25519;
         auto sig_oid = oid_for_signature(alg.signature);
         if (!sig_oid) {
-            return {};
+            throw std::runtime_error("Failed to get OID for Ed25519 signature algorithm");
         }
         fields.push_back(der::encode_sequence(der::encode_oid(*sig_oid)));
         fields.push_back(issuer_.der());

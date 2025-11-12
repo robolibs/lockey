@@ -57,7 +57,7 @@ namespace lockey::cert {
         std::vector<std::vector<uint8_t>> spki_fields;
         auto alg_oid = oid_for_signature(info_.subject_public_key_info.algorithm.signature);
         if (!alg_oid) {
-            return {};
+            throw std::runtime_error("Failed to get OID for signature algorithm");
         }
         spki_fields.push_back(der::encode_sequence(der::encode_oid(*alg_oid)));
         spki_fields.push_back(der::encode_bit_string(
