@@ -157,6 +157,46 @@ namespace lockey::cert {
         std::vector<GeneralName> names_;
     };
 
+    class ExtendedKeyUsageExtension : public Extension {
+      public:
+        // RFC 5280 standard Extended Key Usage OIDs
+        enum class KeyPurposeId {
+            Unknown,
+            ServerAuth,         // TLS Web Server Authentication (1.3.6.1.5.5.7.3.1)
+            ClientAuth,         // TLS Web Client Authentication (1.3.6.1.5.5.7.3.2)
+            CodeSigning,        // Code Signing (1.3.6.1.5.5.7.3.3)
+            EmailProtection,    // E-mail Protection (1.3.6.1.5.5.7.3.4)
+            TimeStamping,       // Time Stamping (1.3.6.1.5.5.7.3.8)
+            OCSPSigning,        // OCSP Signing (1.3.6.1.5.5.7.3.9)
+            AnyExtendedKeyUsage // anyExtendedKeyUsage (2.5.29.37.0)
+        };
+
+        ExtendedKeyUsageExtension(bool critical, std::vector<Oid> purpose_oids)
+            : Extension(ExtensionId::ExtendedKeyUsage, critical), purpose_oids_(std::move(purpose_oids)) {}
+
+        [[nodiscard]] const std::vector<Oid> &purpose_oids() const noexcept { return purpose_oids_; }
+
+        [[nodiscard]] bool has_purpose(KeyPurposeId purpose) const noexcept;
+        [[nodiscard]] bool has_purpose(const Oid &purpose_oid) const noexcept;
+        [[nodiscard]] std::vector<KeyPurposeId> recognized_purposes() const noexcept;
+
+        // Helper methods for common purposes
+        [[nodiscard]] bool allows_server_auth() const noexcept { return has_purpose(KeyPurposeId::ServerAuth); }
+        [[nodiscard]] bool allows_client_auth() const noexcept { return has_purpose(KeyPurposeId::ClientAuth); }
+        [[nodiscard]] bool allows_code_signing() const noexcept { return has_purpose(KeyPurposeId::CodeSigning); }
+        [[nodiscard]] bool allows_email_protection() const noexcept {
+            return has_purpose(KeyPurposeId::EmailProtection);
+        }
+        [[nodiscard]] bool allows_any() const noexcept { return has_purpose(KeyPurposeId::AnyExtendedKeyUsage); }
+
+        // Static helper to convert KeyPurposeId to OID
+        static Oid purpose_to_oid(KeyPurposeId purpose);
+        static KeyPurposeId oid_to_purpose(const Oid &oid);
+
+      private:
+        std::vector<Oid> purpose_oids_;
+    };
+
     // Phase 13: Enterprise Extensions
 
     class IssuerAltNameExtension : public Extension {
@@ -269,6 +309,7 @@ namespace lockey::cert {
         [[nodiscard]] std::optional<uint32_t> basic_constraints_path_length() const;
         [[nodiscard]] std::optional<uint16_t> key_usage_bits() const;
         [[nodiscard]] std::vector<SubjectAltNameExtension::GeneralName> subject_alt_names() const;
+        [[nodiscard]] std::optional<ExtendedKeyUsageExtension> extended_key_usage() const;
         // Phase 13: Enterprise extensions
         [[nodiscard]] std::vector<IssuerAltNameExtension::GeneralName> issuer_alt_names() const;
         [[nodiscard]] std::vector<PolicyMappingsExtension::PolicyMapping> policy_mappings() const;

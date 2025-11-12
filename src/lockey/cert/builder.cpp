@@ -169,6 +169,14 @@ namespace lockey::cert {
         return add_extension(build_key_usage_extension(bits, critical));
     }
 
+    CertificateBuilder &CertificateBuilder::set_extended_key_usage(const std::vector<Oid> &purpose_oids,
+                                                                   bool critical) {
+        if (purpose_oids.empty()) {
+            return *this;
+        }
+        return add_extension(build_extended_key_usage_extension(purpose_oids, critical));
+    }
+
     CertificateBuilder &
     CertificateBuilder::set_subject_alt_name(const std::vector<SubjectAltNameExtension::GeneralName> &names,
                                              bool critical) {
@@ -292,6 +300,21 @@ namespace lockey::cert {
         ext.oid = get_extension_oid(ExtensionId::KeyUsage);
         ext.critical = critical;
         ext.value = bit_string;
+        return ext;
+    }
+
+    RawExtension CertificateBuilder::build_extended_key_usage_extension(const std::vector<Oid> &purpose_oids,
+                                                                        bool critical) const {
+        std::vector<std::vector<uint8_t>> encoded_oids;
+        for (const auto &oid : purpose_oids) {
+            encoded_oids.push_back(der::encode_oid(oid));
+        }
+        auto oid_sequence = der::concat(encoded_oids);
+        RawExtension ext{};
+        ext.id = ExtensionId::ExtendedKeyUsage;
+        ext.oid = get_extension_oid(ExtensionId::ExtendedKeyUsage);
+        ext.critical = critical;
+        ext.value = der::encode_sequence(oid_sequence);
         return ext;
     }
 

@@ -331,6 +331,28 @@ namespace lockey::cert {
         return names;
     }
 
+    std::optional<ExtendedKeyUsageExtension> Certificate::extended_key_usage() const {
+        auto ext = find_extension(ExtensionId::ExtendedKeyUsage);
+        if (!ext) {
+            return std::nullopt;
+        }
+        auto seq = parse_sequence(ByteSpan(ext->value.data(), ext->value.size()));
+        if (!seq.success) {
+            return std::nullopt;
+        }
+        std::vector<Oid> oids;
+        size_t offset = 0;
+        while (offset < seq.value.size()) {
+            auto oid_res = parse_oid(seq.value.subspan(offset));
+            if (!oid_res.success) {
+                break;
+            }
+            oids.push_back(oid_res.value);
+            offset += oid_res.bytes_consumed;
+        }
+        return ExtendedKeyUsageExtension(ext->critical, std::move(oids));
+    }
+
     // Phase 13: Enterprise Extensions Implementation
 
     std::vector<IssuerAltNameExtension::GeneralName> Certificate::issuer_alt_names() const {
@@ -583,24 +605,20 @@ namespace lockey::cert {
     } // namespace
 
     bool Certificate::verify_extensions(CertificatePurpose purpose) const {
-        auto eku_ext = find_extension(ExtensionId::ExtendedKeyUsage);
-        std::vector<Oid> eku_oids;
-        if (eku_ext) {
-            eku_oids = parse_extended_key_usage(*eku_ext);
-        }
+        auto eku = extended_key_usage();
 
-        auto require_eku = [&](const std::vector<uint32_t> &oid_nodes) {
-            if (eku_oids.empty()) {
+        // Helper to check if purpose is allowed
+        // If EKU is not present, all purposes are allowed (per RFC 5280)
+        auto require_eku = [&](ExtendedKeyUsageExtension::KeyPurposeId purpose_id) {
+            if (!eku.has_value()) {
                 return true; // EKU not present, treat as any usage
             }
-            return std::any_of(eku_oids.begin(), eku_oids.end(),
-                               [&](const Oid &oid) { return oid.nodes == oid_nodes; });
+            return eku->has_purpose(purpose_id);
         };
 
         switch (purpose) {
         case CertificatePurpose::TLSServer: {
-            const std::vector<uint32_t> server_auth{1, 3, 6, 1, 5, 5, 7, 3, 1};
-            if (!require_eku(server_auth)) {
+            if (!require_eku(ExtendedKeyUsageExtension::KeyPurposeId::ServerAuth)) {
                 return false;
             }
             // For TLS Server: DigitalSignature is required for ECDSA/EdDSA
@@ -614,16 +632,14 @@ namespace lockey::cert {
                    ((*ku & KeyUsageExtension::KeyEncipherment) != 0);
         }
         case CertificatePurpose::TLSClient: {
-            const std::vector<uint32_t> client_auth{1, 3, 6, 1, 5, 5, 7, 3, 2};
-            if (!require_eku(client_auth)) {
+            if (!require_eku(ExtendedKeyUsageExtension::KeyPurposeId::ClientAuth)) {
                 return false;
             }
             constexpr uint16_t required = KeyUsageExtension::DigitalSignature;
             return verify_key_usage(required);
         }
         case CertificatePurpose::CodeSigning: {
-            const std::vector<uint32_t> code_signing{1, 3, 6, 1, 5, 5, 7, 3, 3};
-            if (!require_eku(code_signing)) {
+            if (!require_eku(ExtendedKeyUsageExtension::KeyPurposeId::CodeSigning)) {
                 return false;
             }
             constexpr uint16_t required = KeyUsageExtension::DigitalSignature | KeyUsageExtension::NonRepudiation;
@@ -792,6 +808,90 @@ namespace lockey::cert {
         fields.push_back(
             der::encode_bit_string(ByteSpan(spki.public_key.data(), spki.public_key.size()), spki.unused_bits));
         return der::encode_sequence(der::concat(fields));
+    }
+
+    // ExtendedKeyUsageExtension implementation
+
+    Oid ExtendedKeyUsageExtension::purpose_to_oid(KeyPurposeId purpose) {
+        switch (purpose) {
+        case KeyPurposeId::ServerAuth:
+            return Oid{{1, 3, 6, 1, 5, 5, 7, 3, 1}};
+        case KeyPurposeId::ClientAuth:
+            return Oid{{1, 3, 6, 1, 5, 5, 7, 3, 2}};
+        case KeyPurposeId::CodeSigning:
+            return Oid{{1, 3, 6, 1, 5, 5, 7, 3, 3}};
+        case KeyPurposeId::EmailProtection:
+            return Oid{{1, 3, 6, 1, 5, 5, 7, 3, 4}};
+        case KeyPurposeId::TimeStamping:
+            return Oid{{1, 3, 6, 1, 5, 5, 7, 3, 8}};
+        case KeyPurposeId::OCSPSigning:
+            return Oid{{1, 3, 6, 1, 5, 5, 7, 3, 9}};
+        case KeyPurposeId::AnyExtendedKeyUsage:
+            return Oid{{2, 5, 29, 37, 0}};
+        default:
+            return Oid{};
+        }
+    }
+
+    ExtendedKeyUsageExtension::KeyPurposeId ExtendedKeyUsageExtension::oid_to_purpose(const Oid &oid) {
+        if (oid.nodes == std::vector<uint32_t>{1, 3, 6, 1, 5, 5, 7, 3, 1}) {
+            return KeyPurposeId::ServerAuth;
+        }
+        if (oid.nodes == std::vector<uint32_t>{1, 3, 6, 1, 5, 5, 7, 3, 2}) {
+            return KeyPurposeId::ClientAuth;
+        }
+        if (oid.nodes == std::vector<uint32_t>{1, 3, 6, 1, 5, 5, 7, 3, 3}) {
+            return KeyPurposeId::CodeSigning;
+        }
+        if (oid.nodes == std::vector<uint32_t>{1, 3, 6, 1, 5, 5, 7, 3, 4}) {
+            return KeyPurposeId::EmailProtection;
+        }
+        if (oid.nodes == std::vector<uint32_t>{1, 3, 6, 1, 5, 5, 7, 3, 8}) {
+            return KeyPurposeId::TimeStamping;
+        }
+        if (oid.nodes == std::vector<uint32_t>{1, 3, 6, 1, 5, 5, 7, 3, 9}) {
+            return KeyPurposeId::OCSPSigning;
+        }
+        if (oid.nodes == std::vector<uint32_t>{2, 5, 29, 37, 0}) {
+            return KeyPurposeId::AnyExtendedKeyUsage;
+        }
+        return KeyPurposeId::Unknown;
+    }
+
+    bool ExtendedKeyUsageExtension::has_purpose(KeyPurposeId purpose) const noexcept {
+        if (purpose == KeyPurposeId::Unknown) {
+            return false;
+        }
+        auto target_oid = purpose_to_oid(purpose);
+        return has_purpose(target_oid);
+    }
+
+    bool ExtendedKeyUsageExtension::has_purpose(const Oid &purpose_oid) const noexcept {
+        // anyExtendedKeyUsage means all purposes are allowed
+        for (const auto &oid : purpose_oids_) {
+            if (oid.nodes == std::vector<uint32_t>{2, 5, 29, 37, 0}) {
+                return true;
+            }
+        }
+        // Check for exact match
+        for (const auto &oid : purpose_oids_) {
+            if (oid.nodes == purpose_oid.nodes) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    std::vector<ExtendedKeyUsageExtension::KeyPurposeId>
+    ExtendedKeyUsageExtension::recognized_purposes() const noexcept {
+        std::vector<KeyPurposeId> purposes;
+        for (const auto &oid : purpose_oids_) {
+            auto purpose = oid_to_purpose(oid);
+            if (purpose != KeyPurposeId::Unknown) {
+                purposes.push_back(purpose);
+            }
+        }
+        return purposes;
     }
 
 } // namespace lockey::cert
