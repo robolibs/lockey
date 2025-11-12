@@ -1,12 +1,15 @@
 #ifdef LOCKEY_HAS_VERIFY
 
 #include <grpcpp/create_channel.h>
-#include <grpcpp/generic/generic_stub.h>
+#include <grpcpp/generic/generic_stub_callback.h>
 #include <grpcpp/security/credentials.h>
 #include <grpcpp/support/channel_arguments.h>
 #include <lockey/verify/client.hpp>
 #include <lockey/verify/codec.hpp>
 #include <sodium.h>
+
+#include <condition_variable>
+#include <mutex>
 
 namespace lockey::verify {
 
@@ -14,7 +17,7 @@ namespace lockey::verify {
     class Client::Impl {
       public:
         std::shared_ptr<grpc::Channel> channel;
-        std::unique_ptr<grpc::GenericStub> stub;
+        std::unique_ptr<grpc::GenericStubCallback> stub;
         ClientConfig config;
         std::optional<cert::Certificate> responder_cert;
 
@@ -45,7 +48,7 @@ namespace lockey::verify {
             channel = grpc::CreateCustomChannel(server_address, creds, args);
 
             // Create generic stub for custom binary protocol
-            stub = std::make_unique<grpc::GenericStub>(channel);
+            stub = std::make_unique<grpc::GenericStubCallback>(channel);
         }
 
         ~Impl() = default;
@@ -100,8 +103,26 @@ namespace lockey::verify {
 
         // Call the server (generic call with custom binary protocol)
         grpc::ByteBuffer response_buffer;
-        auto status = impl_->stub->UnaryCall(&context, "/lockey.verify.VerifyService/CheckCertificate", request_buffer,
-                                             &response_buffer);
+
+        // Use synchronous wrapper for async callback API
+        std::mutex mutex;
+        std::condition_variable cv;
+        bool done = false;
+        grpc::Status status;
+
+        impl_->stub->UnaryCall(&context, "/lockey.verify.VerifyService/CheckCertificate", grpc::StubOptions(),
+                               &request_buffer, &response_buffer, [&](grpc::Status s) {
+                                   std::lock_guard<std::mutex> lock(mutex);
+                                   status = std::move(s);
+                                   done = true;
+                                   cv.notify_one();
+                               });
+
+        // Wait for completion
+        {
+            std::unique_lock<std::mutex> lock(mutex);
+            cv.wait(lock, [&] { return done; });
+        }
 
         if (!status.ok()) {
             return Result<Response>::failure("RPC failed: " + std::string(status.error_message()));
@@ -186,8 +207,26 @@ namespace lockey::verify {
 
         // Call the server
         grpc::ByteBuffer response_buffer;
-        auto status = impl_->stub->UnaryCall(&context, "/lockey.verify.VerifyService/CheckBatch", request_buffer,
-                                             &response_buffer);
+
+        // Use synchronous wrapper for async callback API
+        std::mutex mutex;
+        std::condition_variable cv;
+        bool done = false;
+        grpc::Status status;
+
+        impl_->stub->UnaryCall(&context, "/lockey.verify.VerifyService/CheckBatch", grpc::StubOptions(),
+                               &request_buffer, &response_buffer, [&](grpc::Status s) {
+                                   std::lock_guard<std::mutex> lock(mutex);
+                                   status = std::move(s);
+                                   done = true;
+                                   cv.notify_one();
+                               });
+
+        // Wait for completion
+        {
+            std::unique_lock<std::mutex> lock(mutex);
+            cv.wait(lock, [&] { return done; });
+        }
 
         if (!status.ok()) {
             return Result<std::vector<Response>>::failure("RPC failed: " + std::string(status.error_message()));
@@ -243,8 +282,26 @@ namespace lockey::verify {
 
         // Call the server
         grpc::ByteBuffer response_buffer;
-        auto status = impl_->stub->UnaryCall(&context, "/lockey.verify.VerifyService/HealthCheck", request_buffer,
-                                             &response_buffer);
+
+        // Use synchronous wrapper for async callback API
+        std::mutex mutex;
+        std::condition_variable cv;
+        bool done = false;
+        grpc::Status status;
+
+        impl_->stub->UnaryCall(&context, "/lockey.verify.VerifyService/HealthCheck", grpc::StubOptions(),
+                               &request_buffer, &response_buffer, [&](grpc::Status s) {
+                                   std::lock_guard<std::mutex> lock(mutex);
+                                   status = std::move(s);
+                                   done = true;
+                                   cv.notify_one();
+                               });
+
+        // Wait for completion
+        {
+            std::unique_lock<std::mutex> lock(mutex);
+            cv.wait(lock, [&] { return done; });
+        }
 
         if (!status.ok()) {
             return Result<bool>::failure("Health check failed: " + std::string(status.error_message()));
@@ -303,7 +360,7 @@ namespace lockey::verify {
         message.insert(message.end(), response.nonce.begin(), response.nonce.end());
 
         // Get public key from responder certificate
-        auto pub_key = impl_->responder_cert->public_key();
+        const auto &pub_key = impl_->responder_cert->tbs().subject_public_key_info.public_key;
         if (pub_key.size() != crypto_sign_PUBLICKEYBYTES) {
             return false;
         }
