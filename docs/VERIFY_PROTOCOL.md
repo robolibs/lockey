@@ -17,7 +17,7 @@ The Lockey Verification Protocol (LVP) is a modern certificate revocation checki
 ```
 ┌─────────────┐                  ┌─────────────┐
 │   Client    │                  │   Server    │
-│  (Lockey)   │    gRPC/HTTP2    │    (Go)     │
+│  (Lockey)   │    gRPC/HTTP2    │  (Lockey)   │
 │             │◄────────────────►│             │
 │ Custom Wire │                  │ Custom Wire │
 │   Format    │                  │   Format    │
@@ -25,8 +25,9 @@ The Lockey Verification Protocol (LVP) is a modern certificate revocation checki
        │                                │
        │                                │
        ▼                                ▼
-  Certificate                    Revocation DB
-     Chain                         (SQLite)
+  Certificate                    VerificationHandler
+     Chain                       (SimpleRevocationHandler
+                                  or custom implementation)
 ```
 
 ## Wire Format Specification
@@ -347,14 +348,100 @@ The verify module is completely optional and adds zero overhead when disabled.
 
 ## Server Implementation
 
-See the separate `lockey-verify-server` repository for the Go-based server implementation.
+The verification server is now included in the lockey library itself! Both C++ client and server APIs are provided.
+
+### Server API
+
+```cpp
+#ifdef LOCKEY_HAS_VERIFY
+#include <lockey/verify/server.hpp>
+
+// Create a verification handler
+auto handler = std::make_shared<lockey::verify::SimpleRevocationHandler>();
+
+// Add revoked certificates
+handler->add_revoked_certificate(
+    {0x01, 0x02, 0x03, 0x04, 0x05},  // Serial number
+    "Key compromise",                 // Reason
+    std::chrono::system_clock::now() // Revocation time
+);
+
+// Configure server
+lockey::verify::ServerConfig config;
+config.address = "0.0.0.0:50051";
+config.max_threads = 4;
+config.enable_compression = true;
+
+// Create and start server
+lockey::verify::Server server(handler, config);
+
+// Optional: Set Ed25519 signing key
+std::vector<uint8_t> sk(crypto_sign_SECRETKEYBYTES);
+std::vector<uint8_t> pk(crypto_sign_PUBLICKEYBYTES);
+crypto_sign_keypair(pk.data(), sk.data());
+server.set_signing_key(sk);
+
+// Optional: Set responder certificate
+server.set_responder_certificate(responder_cert);
+
+// Start server (blocks)
+server.start();
+
+// Or start asynchronously
+server.start_async();
+// ... do other work ...
+server.wait();
+#endif
+```
+
+### Custom Verification Handlers
+
+Implement your own verification logic by inheriting from `VerificationHandler`:
+
+```cpp
+class MyCustomHandler : public lockey::verify::VerificationHandler {
+public:
+    lockey::verify::wire::VerifyResponse verify_chain(
+        const std::vector<lockey::cert::Certificate>& chain,
+        std::chrono::system_clock::time_point validation_time) override {
+        
+        lockey::verify::wire::VerifyResponse response;
+        
+        // Your custom verification logic here
+        // - Check against database
+        // - Query CRL
+        // - Check LDAP
+        // - etc.
+        
+        response.status = lockey::verify::wire::VerifyStatus::GOOD;
+        response.this_update = std::chrono::system_clock::now();
+        response.next_update = response.this_update + std::chrono::hours(24);
+        
+        return response;
+    }
+    
+    // Optional: Optimize batch operations
+    std::vector<lockey::verify::wire::VerifyResponse> verify_batch(
+        const std::vector<std::vector<lockey::cert::Certificate>>& chains) override {
+        // Batch optimization here
+        return VerificationHandler::verify_batch(chains);
+    }
+    
+    bool is_healthy() const override {
+        // Health check logic
+        return true;
+    }
+};
+```
 
 **Key Features:**
-- SQLite-backed revocation database
-- CRL import worker
+- In-memory revocation list (`SimpleRevocationHandler`)
+- Custom handler interface for any backend (DB, CRL, LDAP, etc.)
 - Ed25519 response signing
-- Prometheus metrics
-- Docker deployment
+- gRPC async request handling
+- Thread-safe statistics
+- Graceful shutdown
+- Health monitoring
 
 ## Protocol Versioning
 
