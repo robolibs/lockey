@@ -1,6 +1,7 @@
 #ifdef LOCKEY_HAS_VERIFY
 
 #include <grpcpp/create_channel.h>
+#include <grpcpp/generic/generic_stub.h>
 #include <grpcpp/security/credentials.h>
 #include <grpcpp/support/channel_arguments.h>
 #include <lockey/verify/client.hpp>

@@ -902,6 +902,54 @@
         }
       }
     },
+    "thrift@latest": {
+      "last_modified": "2025-10-22T20:59:19Z",
+      "resolved": "github:NixOS/nixpkgs/01b6809f7f9d1183a2b3e081f0a1e6f8f415cb09#thrift",
+      "source": "devbox-search",
+      "version": "0.22.0",
+      "systems": {
+        "aarch64-darwin": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/b7fdh74wgphrl1hhgvzh1c9f8ih3g6fb-thrift-0.22.0",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/b7fdh74wgphrl1hhgvzh1c9f8ih3g6fb-thrift-0.22.0"
+        },
+        "aarch64-linux": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/xiid4lky1xw9sd5jda5s7nzbgx8flxmz-thrift-0.22.0",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/xiid4lky1xw9sd5jda5s7nzbgx8flxmz-thrift-0.22.0"
+        },
+        "x86_64-darwin": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/s6r95riarlv07fdvsbspawc7p8ivyd73-thrift-0.22.0",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/s6r95riarlv07fdvsbspawc7p8ivyd73-thrift-0.22.0"
+        },
+        "x86_64-linux": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/cr3q30b7igadflnjmrzlmy8c69lgns88-thrift-0.22.0",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/cr3q30b7igadflnjmrzlmy8c69lgns88-thrift-0.22.0"
+        }
+      }
+    },
     "zeromq@latest": {
       "last_modified": "2025-10-22T20:59:19Z",
       "resolved": "github:NixOS/nixpkgs/01b6809f7f9d1183a2b3e081f0a1e6f8f415cb09#zeromq",

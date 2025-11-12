@@ -71,9 +71,9 @@ target_compile_options(${project_name} PRIVATE ${params})
 # --------------------------------------------------------------------------------------------------
 # Optional: gRPC verification module
 if(${project_name_upper}_HAS_VERIFY)
-    # find_package(gRPC CONFIG REQUIRED)
-    # target_compile_definitions(${project_name} PUBLIC LOCKEY_HAS_VERIFY)
-    # target_link_libraries(${project_name} PUBLIC grpc grpc++)
+    find_package(gRPC CONFIG REQUIRED)
+    target_compile_definitions(${project_name} PUBLIC LOCKEY_HAS_VERIFY)
+    target_link_libraries(${project_name} PUBLIC grpc grpc++)
     message(STATUS "Lockey: gRPC support enabled")
 else()
     message(STATUS "Lockey: Verify module disabled (use -D${project_name_upper}_HAS_VERIFY=ON to enable)")
