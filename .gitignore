@@ -4,3 +4,5 @@ unused
 out
 TODO.md
 COMPARISON.md
+devbox.lock
+compile_commands.json
