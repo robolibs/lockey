@@ -14,10 +14,7 @@
 #include <lockey/cert/pem.hpp>
 #include <lockey/cert/trust_store.hpp>
 #include <lockey/io/files.hpp>
-
-#ifdef LOCKEY_HAS_VERIFY
 #include <lockey/verify/client.hpp>
-#endif
 
 namespace lockey::cert {
 
@@ -1024,7 +1021,6 @@ namespace lockey::cert {
         return purposes;
     }
 
-#ifdef LOCKEY_HAS_VERIFY
     CertificateBoolResult Certificate::check_revocation(verify::Client &client) const {
         // Create a single certificate chain with just this certificate
         std::vector<Certificate> chain = {*this};
@@ -1048,6 +1044,5 @@ namespace lockey::cert {
         // Certificate is good
         return CertificateBoolResult::ok(true);
     }
-#endif
 
 } // namespace lockey::cert

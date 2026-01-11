@@ -1,10 +1,8 @@
-#ifdef LOCKEY_HAS_VERIFY
-
 #include <lockey/verify/client.hpp>
 #include <lockey/verify/server.hpp> // For method IDs
 
 #include <netpipe/remote/remote.hpp>
-#include <netpipe/stream/tcp_stream.hpp>
+#include <netpipe/stream/tcp.hpp>
 
 #include <sodium.h>
 #include <sstream>
@@ -34,7 +32,7 @@ namespace lockey::verify {
         std::string host;
         uint16_t port{0};
         netpipe::TcpStream stream;
-        std::unique_ptr<netpipe::Remote<netpipe::Unidirect>> remote;
+        std::unique_ptr<netpipe::remote::Remote<netpipe::remote::Unidirect>> remote;
         ClientConfig config;
         std::optional<cert::Certificate> responder_cert;
         bool connected{false};
@@ -46,7 +44,7 @@ namespace lockey::verify {
         }
 
         bool connect() {
-            netpipe::TcpEndpoint endpoint{host, port};
+            netpipe::TcpEndpoint endpoint{dp::String(host.c_str()), port};
             auto connect_result = stream.connect(endpoint);
 
             if (connect_result.is_err()) {
@@ -55,7 +53,7 @@ namespace lockey::verify {
             }
 
             stream.set_recv_timeout(config.recv_timeout_ms);
-            remote = std::make_unique<netpipe::Remote<netpipe::Unidirect>>(stream);
+            remote = std::make_unique<netpipe::remote::Remote<netpipe::remote::Unidirect>>(stream);
             connected = true;
             return true;
         }
@@ -336,5 +334,3 @@ namespace lockey::verify {
     }
 
 } // namespace lockey::verify
-
-#endif // LOCKEY_HAS_VERIFY

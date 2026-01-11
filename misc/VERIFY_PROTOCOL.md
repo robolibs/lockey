@@ -2,22 +2,21 @@
 
 ## Overview
 
-The Lockey Verification Protocol (LVP) is a modern certificate revocation checking system built on gRPC with a custom binary wire format. It provides an efficient, secure alternative to OCSP for Ed25519 certificates.
+The Lockey Verification Protocol (LVP) is a modern certificate revocation checking system built on netpipe with a custom binary wire format. It provides an efficient, secure alternative to OCSP for Ed25519 certificates.
 
 ## Design Goals
 
-- **Modern**: Built on gRPC/HTTP2 for modern networking features
+- **Modern**: Built on netpipe for lightweight TCP networking
 - **Efficient**: Custom binary protocol optimized for Ed25519 certificates
 - **Secure**: Ed25519 signatures, nonce-based replay protection
-- **Minimal**: No Protobuf dependency, ~15MB binary size impact
-- **Optional**: Zero overhead when `LOCKEY_HAS_VERIFY=OFF`
+- **Minimal**: No external dependencies beyond netpipe/datapod
 
 ## Architecture
 
 ```
 ┌─────────────┐                  ┌─────────────┐
 │   Client    │                  │   Server    │
-│  (Lockey)   │    gRPC/HTTP2    │  (Lockey)   │
+│  (Lockey)   │   netpipe/TCP    │  (Lockey)   │
 │             │◄────────────────►│             │
 │ Custom Wire │                  │ Custom Wire │
 │   Format    │                  │   Format    │
@@ -153,26 +152,19 @@ enum class ServingStatus : uint8_t {
 };
 ```
 
-## gRPC Service Definition
+## Netpipe RPC Methods
 
-The protocol uses gRPC generic calls with custom binary serialization:
+The protocol uses netpipe's Remote RPC with method IDs:
 
+```cpp
+namespace methods {
+    constexpr uint32_t CHECK_CERTIFICATE = 1;  // Single certificate verification
+    constexpr uint32_t CHECK_BATCH = 2;        // Batch verification
+    constexpr uint32_t HEALTH_CHECK = 3;       // Health check
+}
 ```
-Service: lockey.verify.VerifyService
 
-Methods:
-- /lockey.verify.VerifyService/CheckCertificate
-  Request:  VerifyRequest (binary)
-  Response: VerifyResponse (binary)
-
-- /lockey.verify.VerifyService/CheckBatch
-  Request:  BatchVerifyRequest (binary)
-  Response: BatchVerifyResponse (binary)
-
-- /lockey.verify.VerifyService/HealthCheck
-  Request:  HealthCheckRequest (binary)
-  Response: HealthCheckResponse (binary)
-```
+Each method receives the wire-format message as payload and returns a wire-format response.
 
 ## Security Considerations
 
@@ -200,11 +192,11 @@ All responses are signed with the server's Ed25519 private key. Clients SHOULD v
 
 **Signature Input:**
 ```
-status (1 byte) || 
-reason (UTF-8 string) || 
-revocation_time (8 bytes) || 
-this_update (8 bytes) || 
-next_update (8 bytes) || 
+status (1 byte) ||
+reason (UTF-8 string) ||
+revocation_time (8 bytes) ||
+this_update (8 bytes) ||
+next_update (8 bytes) ||
 nonce (32 bytes)
 ```
 
@@ -217,22 +209,19 @@ auto result = client.verify_chain(chain);
 
 ### Transport Security
 
-Clients SHOULD use TLS for transport security:
+The netpipe transport uses plain TCP. For production deployments requiring encryption, consider:
 
-```cpp
-ClientConfig config;
-config.ca_cert_path = "/path/to/ca-cert.pem";
-Client client("verify.example.com:50051", config);
-```
+1. Running behind a TLS termination proxy (nginx, HAProxy)
+2. Using a VPN or encrypted tunnel
+3. Deploying on a trusted private network
 
-For development/testing, insecure channels are supported but NOT recommended for production.
+The protocol-level Ed25519 signatures ensure response authenticity regardless of transport encryption.
 
 ## Usage Examples
 
 ### Basic Verification
 
 ```cpp
-#ifdef LOCKEY_HAS_VERIFY
 #include <lockey/verify/client.hpp>
 
 // Create client
@@ -240,21 +229,20 @@ lockey::verify::ClientConfig config;
 config.timeout = std::chrono::seconds(10);
 config.max_retry_attempts = 3;
 
-lockey::verify::Client client("verify.example.com:50051", config);
+lockey::verify::Client client("192.168.1.100:50051", config);
 
 // Set responder certificate for signature verification
 client.set_responder_cert(responder_cert);
 
 // Verify certificate chain
 auto result = client.verify_chain(cert_chain);
-if (result.success && result.value.valid) {
+if (result.success && result.value.status == lockey::verify::wire::VerifyStatus::GOOD) {
     std::cout << "Certificate is valid and not revoked\n";
-} else if (result.success && !result.value.valid) {
+} else if (result.success && result.value.status == lockey::verify::wire::VerifyStatus::REVOKED) {
     std::cout << "Certificate is revoked: " << result.value.reason << "\n";
 } else {
     std::cerr << "Verification failed: " << result.error << "\n";
 }
-#endif
 ```
 
 ### Batch Verification
@@ -267,7 +255,7 @@ auto result = client.verify_batch(chains);
 if (result.success) {
     for (size_t i = 0; i < result.value.size(); ++i) {
         const auto& resp = result.value[i];
-        if (resp.valid) {
+        if (resp.status == lockey::verify::wire::VerifyStatus::GOOD) {
             std::cout << "Chain " << i << ": Valid\n";
         } else {
             std::cout << "Chain " << i << ": Revoked - " << resp.reason << "\n";
@@ -310,50 +298,28 @@ Typical message sizes for Ed25519 certificates:
 | Wire format | Custom binary | ASN.1/DER |
 | Signing | Ed25519 | RSA/ECDSA |
 | Hashing | SHA-256 | SHA-1 (legacy) |
-| Transport | gRPC/HTTP2 | HTTP/1.1 |
+| Transport | netpipe/TCP | HTTP/1.1 |
 | Batch support | Native | Extension |
-| Binary size | ~15MB | N/A (OpenSSL) |
+| Dependencies | netpipe, datapod | OpenSSL |
 
 ## Build Configuration
-
-### Enabling Verification Support
-
-```bash
-# Build with verify module
-cmake -B build -DLOCKEY_HAS_VERIFY=ON
-cmake --build build
-
-# Build without (default, minimal)
-cmake -B build
-cmake --build build
-```
 
 ### CMake Integration
 
 ```cmake
 find_package(lockey REQUIRED)
 target_link_libraries(your_target lockey::lockey)
-
-# Conditional usage
-target_compile_definitions(your_target PRIVATE LOCKEY_HAS_VERIFY)
 ```
 
-## Binary Size Impact
-
-- **Core library (without verify)**: ~2.1MB
-- **With verify module**: +15MB (gRPC)
-- **Comparison**: Protobuf would add +22MB (saved 7MB)
-
-The verify module is completely optional and adds zero overhead when disabled.
+The verify module is always included and uses the lightweight netpipe transport.
 
 ## Server Implementation
 
-The verification server is now included in the lockey library itself! Both C++ client and server APIs are provided.
+The verification server is included in the lockey library. Both C++ client and server APIs are provided.
 
 ### Server API
 
 ```cpp
-#ifdef LOCKEY_HAS_VERIFY
 #include <lockey/verify/server.hpp>
 
 // Create a verification handler
@@ -368,9 +334,9 @@ handler->add_revoked_certificate(
 
 // Configure server
 lockey::verify::ServerConfig config;
-config.address = "0.0.0.0:50051";
+config.host = "0.0.0.0";
+config.port = 50051;
 config.max_threads = 4;
-config.enable_compression = true;
 
 // Create and start server
 lockey::verify::Server server(handler, config);
@@ -391,7 +357,6 @@ server.start();
 server.start_async();
 // ... do other work ...
 server.wait();
-#endif
 ```
 
 ### Custom Verification Handlers
@@ -404,29 +369,29 @@ public:
     lockey::verify::wire::VerifyResponse verify_chain(
         const std::vector<lockey::cert::Certificate>& chain,
         std::chrono::system_clock::time_point validation_time) override {
-        
+
         lockey::verify::wire::VerifyResponse response;
-        
+
         // Your custom verification logic here
         // - Check against database
         // - Query CRL
         // - Check LDAP
         // - etc.
-        
+
         response.status = lockey::verify::wire::VerifyStatus::GOOD;
         response.this_update = std::chrono::system_clock::now();
         response.next_update = response.this_update + std::chrono::hours(24);
-        
+
         return response;
     }
-    
+
     // Optional: Optimize batch operations
     std::vector<lockey::verify::wire::VerifyResponse> verify_batch(
         const std::vector<std::vector<lockey::cert::Certificate>>& chains) override {
         // Batch optimization here
         return VerificationHandler::verify_batch(chains);
     }
-    
+
     bool is_healthy() const override {
         // Health check logic
         return true;
@@ -438,7 +403,7 @@ public:
 - In-memory revocation list (`SimpleRevocationHandler`)
 - Custom handler interface for any backend (DB, CRL, LDAP, etc.)
 - Ed25519 response signing
-- gRPC async request handling
+- Multi-threaded request handling via netpipe
 - Thread-safe statistics
 - Graceful shutdown
 - Health monitoring
@@ -451,13 +416,13 @@ Future versions will maintain backward compatibility or increment the version by
 
 ## Error Handling
 
-### gRPC Status Codes
+### Connection Errors
 
-- `OK`: Success
-- `INVALID_ARGUMENT`: Malformed request/response
-- `UNAVAILABLE`: Server unreachable
-- `DEADLINE_EXCEEDED`: Timeout
-- `INTERNAL`: Server error
+Netpipe returns `dp::Res<T>` result types. Common error conditions:
+
+- **Connection refused**: Server not running or wrong address
+- **Timeout**: Server not responding within configured timeout
+- **Connection reset**: Server closed connection unexpectedly
 
 ### Client Error Handling
 
@@ -486,9 +451,3 @@ Potential future additions:
 2. **Certificate Transparency**: CT log integration
 3. **Offline Verification**: Cached responses with short TTLs
 4. **Multi-Issuer Support**: Verify chains from multiple CAs
-
----
-
-**Last Updated**: 2025-11-12  
-**Version**: 0.1.0  
-**Maintainer**: Lockey Project

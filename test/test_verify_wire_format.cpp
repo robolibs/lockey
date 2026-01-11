@@ -1,7 +1,5 @@
-#define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
 #include <doctest/doctest.h>
 
-#ifdef LOCKEY_HAS_VERIFY
 #include <lockey/verify/wire_format.hpp>
 #include <sodium.h>
 
@@ -200,11 +198,3 @@ TEST_SUITE("verify/wire_format") {
         }
     }
 }
-
-#else
-
-TEST_CASE("Wire format tests require LOCKEY_HAS_VERIFY") {
-    WARN("LOCKEY_HAS_VERIFY not defined - skipping wire format tests");
-}
-
-#endif // LOCKEY_HAS_VERIFY

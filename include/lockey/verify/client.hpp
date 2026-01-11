@@ -1,7 +1,5 @@
 #pragma once
 
-#ifdef LOCKEY_HAS_VERIFY
-
 #include <chrono>
 #include <memory>
 #include <string>
@@ -91,5 +89,3 @@ namespace lockey::verify {
     };
 
 } // namespace lockey::verify
-
-#endif // LOCKEY_HAS_VERIFY

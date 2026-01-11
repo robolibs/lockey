@@ -1,9 +1,7 @@
-#ifdef LOCKEY_HAS_VERIFY
-
 #include <lockey/verify/server.hpp>
 
 #include <netpipe/remote/remote.hpp>
-#include <netpipe/stream/tcp_stream.hpp>
+#include <netpipe/stream/tcp.hpp>
 
 #include <atomic>
 #include <iostream>
@@ -100,7 +98,7 @@ namespace lockey::verify {
         dp::Res<netpipe::Message> handle_batch_request(const netpipe::Message &request_data);
         dp::Res<netpipe::Message> handle_health_check(const netpipe::Message &request_data);
 
-        void serve_client(std::unique_ptr<netpipe::TcpStream> client_stream);
+        void serve_client(std::unique_ptr<netpipe::Stream> client_stream);
         void run_server();
     };
 
@@ -257,8 +255,8 @@ namespace lockey::verify {
         return dp::result::ok(netpipe::Message(resp_data.begin(), resp_data.end()));
     }
 
-    void Server::Impl::serve_client(std::unique_ptr<netpipe::TcpStream> client_stream) {
-        netpipe::Remote<netpipe::Unidirect> remote(*client_stream);
+    void Server::Impl::serve_client(std::unique_ptr<netpipe::Stream> client_stream) {
+        netpipe::remote::Remote<netpipe::remote::Unidirect> remote(*client_stream);
 
         remote.register_method(methods::CHECK_CERTIFICATE,
                                [this](const netpipe::Message &req) { return handle_verify_request(req); });
@@ -270,16 +268,11 @@ namespace lockey::verify {
                                [this](const netpipe::Message &req) { return handle_health_check(req); });
 
         // Serve requests until connection closes or server stops
-        while (running && !should_stop) {
-            auto result = remote.serve_one();
-            if (result.is_err()) {
-                break; // Connection closed or error
-            }
-        }
+        remote.serve();
     }
 
     void Server::Impl::run_server() {
-        netpipe::TcpEndpoint endpoint{config.host, config.port};
+        netpipe::TcpEndpoint endpoint{dp::String(config.host.c_str()), config.port};
         auto listen_result = listener.listen(endpoint);
 
         if (listen_result.is_err()) {
@@ -377,5 +370,3 @@ namespace lockey::verify {
     }
 
 } // namespace lockey::verify
-
-#endif // LOCKEY_HAS_VERIFY

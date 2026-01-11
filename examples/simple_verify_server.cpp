@@ -1,22 +1,20 @@
 /**
  * Simple Verification Server Example
  *
- * This example demonstrates how to create a simple gRPC verification server
+ * This example demonstrates how to create a simple netpipe verification server
  * using the lockey::verify::Server API. The server maintains an in-memory
  * revocation list and responds to certificate verification requests.
  *
- * Build with: cmake -DLOCKEY_HAS_VERIFY=ON -DLOCKEY_BUILD_EXAMPLES=ON
+ * Build with: cmake -DLOCKEY_BUILD_EXAMPLES=ON
  * Run: ./simple_verify_server [port]
  */
 
 #include <csignal>
 #include <iostream>
-#include <lockey/lockey.hpp>
-#include <thread>
-
-#ifdef LOCKEY_HAS_VERIFY
 #include <lockey/cert/builder.hpp>
+#include <lockey/lockey.hpp>
 #include <lockey/verify/server.hpp>
+#include <thread>
 
 // Global server instance for signal handling
 lockey::verify::Server *g_server = nullptr;
@@ -146,13 +144,3 @@ int main(int argc, char *argv[]) {
     g_server = nullptr;
     return 0;
 }
-
-#else
-
-int main() {
-    std::cerr << "This example requires LOCKEY_HAS_VERIFY to be enabled\n";
-    std::cerr << "Please rebuild with: cmake -DLOCKEY_HAS_VERIFY=ON -DLOCKEY_BUILD_EXAMPLES=ON\n";
-    return 1;
-}
-
-#endif // LOCKEY_HAS_VERIFY

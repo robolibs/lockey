@@ -4,15 +4,13 @@
  * This example demonstrates how to use the lockey::verify::Client to check
  * certificate revocation status against a verification server.
  *
- * Build with: cmake -DLOCKEY_HAS_VERIFY=ON -DLOCKEY_BUILD_EXAMPLES=ON
+ * Build with: cmake -DLOCKEY_BUILD_EXAMPLES=ON
  * Run: ./simple_verify_client [server:port]
  */
 
 #include <iostream>
-#include <lockey/lockey.hpp>
-
-#ifdef LOCKEY_HAS_VERIFY
 #include <lockey/cert/builder.hpp>
+#include <lockey/lockey.hpp>
 #include <lockey/verify/client.hpp>
 
 int main(int argc, char *argv[]) {
@@ -187,13 +185,3 @@ int main(int argc, char *argv[]) {
     std::cout << "\n✓ Client demo completed successfully!\n";
     return 0;
 }
-
-#else
-
-int main() {
-    std::cerr << "This example requires LOCKEY_HAS_VERIFY to be enabled\n";
-    std::cerr << "Please rebuild with: cmake -DLOCKEY_HAS_VERIFY=ON -DLOCKEY_BUILD_EXAMPLES=ON\n";
-    return 1;
-}
-
-#endif // LOCKEY_HAS_VERIFY

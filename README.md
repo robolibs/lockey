@@ -2,168 +2,336 @@
 
 # Lockey
 
-**A lightweight C++20 libsodium wrapper with a complete Ed25519-focused X.509 toolkit**
+A lightweight C++20 libsodium wrapper with a complete Ed25519-focused X.509 certificate toolkit.
 
-[![Build Status](https://img.shields.io/badge/build-passing-brightgreen)](https://github.com/yourusername/lockey)
-[![Language](https://img.shields.io/badge/language-C%2B%2B20-blue)](https://en.cppreference.com/w/cpp/20)
-[![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+## Development Status
+
+See [TODO.md](./TODO.md) for the complete development plan and current progress.
 
 ## Overview
 
-Lockey wraps the battle-tested **libsodium** library in a clean C++20 API. Only modern, authenticated primitives: XChaCha20-Poly1305, X25519 sealed boxes, Ed25519 signatures, and SHA-256/SHA-512/BLAKE2b. No RSA, no ECDSA, no legacy baggage.
+Lockey wraps the battle-tested **libsodium** cryptography library in a clean, modern C++20 API. It provides only modern, authenticated primitives: XChaCha20-Poly1305 for symmetric encryption, X25519 sealed boxes for public-key encryption, Ed25519 for digital signatures, and SHA-256/SHA-512/BLAKE2b for hashing. No RSA, no ECDSA, no legacy baggage.
 
-**Key Features:**
-- **Static library** - Links as `liblockey.a` with clean public API
-- **Modern crypto** - XChaCha20-Poly1305 AEAD, X25519 boxes, Ed25519 signatures
-- **Complete X.509 stack** - DER/PEM parsing, certificate builder, CSR/CRL support
-- **Trust store** - System integration, chain validation, hostname verification
-- **Verification protocol** - Optional gRPC-based OCSP alternative (requires `LOCKEY_HAS_VERIFY=ON`)
-- **Type-safe** - Result types for error handling, no exceptions by default
-- **Enterprise PKI** - Policy extensions, name constraints, extended key usage
+Beyond cryptographic primitives, Lockey includes a complete X.509 certificate toolkit built entirely in pure C++. The library implements its own ASN.1 DER parser and encoder without any external dependencies like OpenSSL or Boost. This enables full certificate parsing, generation, validation, and chain verification using modern Ed25519 signatures throughout.
 
-## Quick Start
+The design philosophy prioritizes safety and simplicity. All fallible operations return result types instead of throwing exceptions. Builder patterns provide fluent APIs for constructing certificates, CSRs, and CRLs. An optional verification protocol offers a lightweight OCSP alternative using netpipe transport, adding zero overhead when disabled.
+
+### Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                              LOCKEY LIBRARY                                 │
+├───────────────┬───────────────┬───────────────┬───────────────┬─────────────┤
+│    CRYPTO     │     CERT      │     HASH      │      IO       │   VERIFY    │
+│               │               │               │               │  (optional) │
+│  ┌─────────┐  │  ┌─────────┐  │  ┌─────────┐  │  ┌─────────┐  │  ┌───────┐  │
+│  │XChaCha20│  │  │ Parser  │  │  │ SHA-256 │  │  │  Files  │  │  │Client │  │
+│  │Poly1305 │  │  │ Builder │  │  │ SHA-512 │  │  │Envelope │  │  │Server │  │
+│  │ X25519  │  │  │  CSR    │  │  │ BLAKE2b │  │  │  Keys   │  │  │Handler│  │
+│  │ Ed25519 │  │  │  CRL    │  │  │  HMAC   │  │  └─────────┘  │  └───────┘  │
+│  └─────────┘  │  │ Trust   │  │  └─────────┘  │               │      │      │
+│       │       │  └─────────┘  │       │       │               │      │      │
+└───────┼───────┴───────┼───────┴───────┼───────┴───────────────┴──────┼──────┘
+        │               │               │                              │
+        └───────────────┴───────────────┴──────────────────────────────┘
+                                    │
+                        ┌───────────▼───────────┐
+                        │      libsodium        │
+                        │  (crypto primitives)  │
+                        └───────────────────────┘
+```
+
+**Module Responsibilities:**
+
+```
+CRYPTO ─────► Symmetric/asymmetric encryption, signatures, key generation
+CERT ───────► X.509 parsing, building, validation, trust stores, CSR/CRL
+HASH ───────► Cryptographic hashing (SHA-256, SHA-512, BLAKE2b) and HMAC
+IO ─────────► Binary file I/O, X25519 sealed envelope operations
+VERIFY ─────► Optional netpipe-based certificate verification protocol
+```
+
+## Installation
+
+### Quick Start (CMake FetchContent)
+
+```cmake
+include(FetchContent)
+FetchContent_Declare(
+  lockey
+  GIT_REPOSITORY https://github.com/robolibs/lockey
+  GIT_TAG main
+)
+FetchContent_MakeAvailable(lockey)
+
+target_link_libraries(your_target PRIVATE lockey)
+```
+
+### Recommended: XMake
+
+[XMake](https://xmake.io/) is a modern, fast, and cross-platform build system.
+
+**Install XMake:**
+```bash
+curl -fsSL https://xmake.io/shget.text | bash
+```
+
+**Add to your xmake.lua:**
+```lua
+add_requires("lockey")
+
+target("your_target")
+    set_kind("binary")
+    add_packages("lockey")
+    add_files("src/*.cpp")
+```
+
+**Build:**
+```bash
+xmake
+xmake run
+```
+
+### Complete Development Environment (Nix + Direnv + Devbox)
+
+For the ultimate reproducible development environment:
+
+**1. Install Nix (package manager from NixOS):**
+```bash
+curl --proto '=https' --tlsv1.2 -sSf -L https://install.determinate.systems/nix | sh -s -- install
+```
+[Nix](https://nixos.org/) - Reproducible, declarative package management
+
+**2. Install direnv (automatic environment switching):**
+```bash
+sudo apt install direnv
+
+# Add to your shell (~/.bashrc or ~/.zshrc):
+eval "$(direnv hook bash)"  # or zsh
+```
+[direnv](https://direnv.net/) - Load environment variables based on directory
+
+**3. Install Devbox (Nix-powered development environments):**
+```bash
+curl -fsSL https://get.jetpack.io/devbox | bash
+```
+[Devbox](https://www.jetpack.io/devbox/) - Portable, isolated dev environments
+
+**4. Use the environment:**
+```bash
+cd lockey
+direnv allow  # Allow .envrc (one-time)
+# Environment automatically loaded! All dependencies available.
+
+xmake        # or cmake, make, etc.
+```
+
+## Usage
+
+### Basic Usage
 
 ```cpp
-#include "lockey/lockey.hpp"
+#include <lockey/lockey.hpp>
 
 int main() {
-    lockey::Lockey crypto(lockey::Lockey::Algorithm::XChaCha20_Poly1305);
-    
+    // Symmetric encryption with XChaCha20-Poly1305
+    lockey::crypto::Lockey crypto(lockey::crypto::Lockey::Algorithm::XChaCha20_Poly1305);
+
     auto key = crypto.generate_symmetric_key();
-    auto ciphertext = crypto.encrypt({'H','e','l','l','o'}, key.data);
+    std::vector<uint8_t> message = {'H', 'e', 'l', 'l', 'o'};
+
+    auto ciphertext = crypto.encrypt(message, key.data);
     auto plaintext = crypto.decrypt(ciphertext.data, key.data);
+    // plaintext.data == message
+
+    // Digital signatures with Ed25519
+    lockey::crypto::Lockey signer(lockey::crypto::Lockey::Algorithm::Ed25519);
+    auto keypair = signer.generate_keypair();
+
+    auto signature = signer.sign(message, keypair.private_key);
+    auto verified = signer.verify(message, signature.data, keypair.public_key);
+    // verified.success == true
 }
 ```
 
-## Core Primitives
-
-| Primitive | Purpose | Algorithm |
-|-----------|---------|-----------|
-| `XChaCha20_Poly1305` | Symmetric AEAD encryption | 256-bit key, 192-bit nonce |
-| `SecretBox_XSalsa20` | Symmetric secretbox | XSalsa20-Poly1305 |
-| `X25519_Box` | Public-key sealed boxes | Curve25519 |
-| `Ed25519` | Digital signatures | EdDSA on Curve25519 |
-| `SHA256/SHA512/BLAKE2b` | Hashing & HMAC | Multiple hash algorithms |
-
-## Usage Examples
-
-### Cryptography
+### Advanced Usage
 
 ```cpp
-// Symmetric encryption
-auto key = crypto.generate_symmetric_key();
-auto ciphertext = crypto.encrypt(plaintext, key.data, /*aad=*/{});
-auto decrypted = crypto.decrypt(ciphertext.data, key);
+#include <lockey/lockey.hpp>
+#include <lockey/cert/builder.hpp>
+#include <lockey/cert/trust_store.hpp>
 
-// X25519 sealed boxes
-lockey::Lockey box(lockey::Lockey::Algorithm::X25519_Box);
-auto recipient = box.generate_keypair();
-auto sealed = box.encrypt_asymmetric(data, recipient.public_key);
-auto plain = box.decrypt_asymmetric(sealed.data, recipient.private_key);
+int main() {
+    using namespace lockey::cert;
 
-// Ed25519 signatures
-lockey::Lockey signer(lockey::Lockey::Algorithm::Ed25519);
-auto keypair = signer.generate_keypair();
-auto signature = signer.sign(data, keypair.private_key);
-auto verified = signer.verify(data, signature.data, keypair.public_key);
+    // Generate Ed25519 keypair for certificate
+    lockey::crypto::Lockey ctx(lockey::crypto::Lockey::Algorithm::Ed25519);
+    auto ca_keys = ctx.generate_keypair();
 
-// Hashing & HMAC
-auto digest = crypto.hash(data);
-auto mac = crypto.hmac(data, key_material);
-```
+    // Build a self-signed CA certificate
+    auto dn = DistinguishedName::from_string("CN=My CA,O=Example Corp,C=US");
 
-### X.509 Certificates
+    auto now = std::chrono::system_clock::now();
+    auto one_year = std::chrono::hours(24 * 365);
 
-```cpp
-#include "lockey/cert/builder.hpp"
+    CertificateBuilder builder;
+    builder.set_version(3)
+           .set_serial(1)
+           .set_subject(dn.value)
+           .set_issuer(dn.value)
+           .set_validity(now, now + one_year)
+           .set_subject_public_key_ed25519(ca_keys.public_key)
+           .set_basic_constraints(true, 0, true)  // CA=true, pathLen=0
+           .set_key_usage(KeyUsageExtension::KeyCertSign | KeyUsageExtension::CRLSign);
 
-// Generate certificate
-auto keys = lockey::cert::generate_ed25519_keypair();
-lockey::cert::CertificateBuilder builder;
-builder.set_subject_from_string("CN=Example,O=Org")
-       .set_subject_public_key_ed25519(keys.public_key)
-       .set_validity(now, now + std::chrono::hours(24*365))
-       .set_basic_constraints(false, std::nullopt);
-auto cert = builder.build_ed25519(keys, /*self_signed=*/true);
+    auto ca_cert = builder.build_ed25519(ca_keys, /*self_signed=*/true);
 
-// Validate chain
-auto trust = lockey::cert::TrustStore::load_from_system();
-auto valid = cert.validate_chain(intermediates, trust.value);
+    // Load system trust store and validate a certificate chain
+    auto trust = TrustStore::load_from_system();
+    if (trust.success) {
+        std::vector<Certificate> chain = {end_entity_cert, intermediate_cert};
+        auto validation = end_entity_cert.validate_chain(chain, trust.value);
 
-// Generate CSR
-lockey::cert::CsrBuilder csr;
-auto csr_doc = csr.set_subject_from_string("CN=Client")
-                  .set_subject_public_key_ed25519(keys.public_key)
-                  .build_ed25519(keys);
-```
-
-### Certificate Verification Protocol
-
-Optional gRPC-based OCSP alternative (`LOCKEY_HAS_VERIFY=ON`):
-
-```cpp
-#include <lockey/verify/client.hpp>
-#include <lockey/verify/server.hpp>
-
-// Client
-lockey::verify::Client client("localhost:50051");
-auto response = client.verify_chain(certificate_chain);
-
-// Server with custom handler
-class MyHandler : public lockey::verify::VerificationHandler {
-    wire::VerifyResponse verify_chain(const std::vector<cert::Certificate> &chain,
-                                     std::chrono::system_clock::time_point validation_time) override {
-        return response; // Custom verification logic
+        if (validation.success) {
+            // Chain is valid and trusted
+        }
     }
-};
 
-lockey::verify::Server server(std::make_shared<MyHandler>(), config);
-server.start();
+    // Check hostname against certificate SANs
+    if (ca_cert.value.match_hostname("example.com")) {
+        // Certificate is valid for this hostname
+    }
+}
 ```
 
-See [`docs/VERIFY_PROTOCOL.md`](docs/VERIFY_PROTOCOL.md) for details.
+## Features
+
+- **Modern Cryptography Only** - XChaCha20-Poly1305 AEAD encryption with 256-bit keys and 192-bit nonces, X25519 sealed boxes for public-key encryption, Ed25519 signatures. No RSA, no ECDSA, no legacy algorithms.
+  ```cpp
+  lockey::crypto::Lockey box(lockey::crypto::Lockey::Algorithm::X25519_Box);
+  auto recipient = box.generate_keypair();
+  auto sealed = box.encrypt_asymmetric(data, recipient.public_key);
+  auto opened = box.decrypt_asymmetric(sealed.data, recipient.private_key);
+  ```
+
+- **Pure C++ ASN.1 Codec** - Complete DER parser and encoder with no external dependencies. Parses integers, bit strings, OIDs, sequences, sets, UTC/generalized time, and directory strings.
+
+- **X.509 Certificate Builder** - Fluent API for creating certificates with all standard extensions: Basic Constraints, Key Usage, Extended Key Usage, Subject Alt Names, Authority/Subject Key Identifiers.
+  ```cpp
+  CertificateBuilder builder;
+  builder.set_subject(dn)
+         .set_subject_public_key_ed25519(keys.public_key)
+         .set_subject_alt_name({{GeneralNameType::DNSName, "*.example.com"},
+                                {GeneralNameType::IPAddress, "192.168.1.1"}})
+         .set_extended_key_usage({oid::ServerAuth, oid::ClientAuth});
+  auto cert = builder.build_ed25519(keys, true);
+  ```
+
+- **Complete PKI Workflow** - Certificate Signing Requests (CSR/PKCS#10), Certificate Revocation Lists (CRL v1/v2), chain validation against trust stores, hostname verification with wildcard support.
+  ```cpp
+  CsrBuilder csr;
+  csr.set_subject(dn).set_subject_public_key_ed25519(keys.public_key);
+  auto request = csr.build_ed25519(keys);
+  request.value.save("request.pem", /*pem=*/true);
+  ```
+
+- **Enterprise PKI Extensions** - Full RFC 5280 compliance including Policy Mappings, Policy Constraints, Inhibit Any Policy, and Name Constraints for complex PKI deployments.
+
+- **Trust Store Integration** - Load certificates from system CA bundles (Debian, RHEL, FreeBSD), explicit file paths, or environment variables (`SSL_CERT_FILE`, `SSL_CERT_DIR`).
+  ```cpp
+  auto trust = TrustStore::load_from_system();  // Auto-detects OS CA bundle
+  auto trust = TrustStore::load_from_file("/custom/ca-bundle.crt");
+  ```
+
+- **Cryptographic Hashing** - SHA-256, SHA-512, and BLAKE2b with HMAC support for all algorithms.
+  ```cpp
+  auto digest = lockey::hash::digest(lockey::hash::Algorithm::SHA256, data);
+  auto mac = lockey::hash::hmac(lockey::hash::Algorithm::BLAKE2b, data, key);
+  ```
+
+- **Secure Key Exchange** - X25519 sealed box envelopes with optional Associated Authenticated Data (AAD) for secure file encryption and key transport.
+  ```cpp
+  auto envelope = lockey::io::create_envelope(payload, recipient_public_key, aad);
+  lockey::io::write_envelope_to_file(envelope.data, "encrypted.bin");
+  ```
+
+- **Verification Protocol** - Lightweight netpipe-based OCSP alternative with Ed25519-signed responses and replay protection.
+  ```cpp
+  // Client
+  lockey::verify::Client client("localhost:50051");
+  auto result = client.verify_chain(certificate_chain);
+
+  // Server with custom handler
+  auto handler = std::make_shared<lockey::verify::SimpleRevocationHandler>();
+  handler->add_revoked_certificate(serial, "Key compromise");
+  lockey::verify::Server server(handler, config);
+  server.start_async();
+  ```
+
+- **Type-Safe Error Handling** - All operations return result types with `{success, data, error}` instead of throwing exceptions. Enables clean error handling without try-catch overhead.
+
+- **Efficient Memory Usage** - Lazy DER encoding and extension parsing. Certificate data parsed on-demand. Constant-time secure memory comparison and zeroing.
 
 ## Building
 
 ```bash
-# Makefile targets
-make config   # Configure with tests/examples
-make          # Build everything
-make test     # Run test suite
+# Using Make (recommended)
+make config   # Configure with tests and examples
+make          # Build library
+make test     # Run 34-test suite
 
-# Or use CMake directly
-cmake -S . -B build -DLOCKEY_BUILD_EXAMPLES=ON -DLOCKEY_ENABLE_TESTS=ON
+# Using CMake directly
+cmake -S . -B build \
+    -DLOCKEY_BUILD_EXAMPLES=ON \
+    -DLOCKEY_ENABLE_TESTS=ON
 cmake --build build
-cd build && ctest --output-on-failure
+ctest --test-dir build --output-on-failure
 
-# Enable verification protocol
-cmake -S . -B build -DLOCKEY_HAS_VERIFY=ON
+# Using XMake
+xmake config --tests=y --examples=y
+xmake build
+xmake test
 ```
 
 **Requirements:**
-- C++20 compiler (GCC 10+, Clang 11+, MSVC 2019+)
+- C++20 compiler (GCC 10+, Clang 11+)
 - libsodium 1.0.18+
-- CMake 3.14+
-- Optional: gRPC (for verification protocol)
+- CMake 3.14+ or XMake 2.5+
 
-## Examples
-
-See [`examples/`](examples/) for complete working examples:
-
-**Cryptography:** `main.cpp`, `test_comprehensive.cpp`  
-**Certificates:** `cert_generate_*.cpp`, `csr_generate.cpp`, `cert_verify_chain.cpp`  
-**Verification:** `simple_verify_client.cpp`, `simple_verify_server.cpp`  
-**Enterprise PKI:** `enterprise.cpp`, `trust_store_usage.cpp`
+**Build Options:**
+| Option | Default | Description |
+|--------|---------|-------------|
+| `LOCKEY_BUILD_EXAMPLES` | OFF | Build 14 example programs |
+| `LOCKEY_ENABLE_TESTS` | OFF | Build test suite |
+| `LOCKEY_ENABLE_SIMD` | ON | Enable SIMD optimizations (AVX2/NEON) |
 
 ## Documentation
 
-- **X.509 User Guide**: [`docs/X509_USER_GUIDE.md`](docs/X509_USER_GUIDE.md) - Complete certificate API reference
-- **Verification Protocol**: [`docs/VERIFY_PROTOCOL.md`](docs/VERIFY_PROTOCOL.md) - gRPC verification protocol spec
+- **X.509 User Guide**: [misc/X509_USER_GUIDE.md](./misc/X509_USER_GUIDE.md) - Complete certificate API reference with examples
+- **Verification Protocol**: [misc/VERIFY_PROTOCOL.md](./misc/VERIFY_PROTOCOL.md) - Wire format specification and security considerations
+
+## Examples
+
+Working examples in [`examples/`](./examples/):
+
+| Category | Files |
+|----------|-------|
+| **Cryptography** | `main.cpp`, `test_lockey.cpp`, `test_comprehensive.cpp` |
+| **Certificates** | `cert_generate_self_signed.cpp`, `cert_generate_ca.cpp`, `cert_parse_and_print.cpp`, `cert_sign_csr.cpp`, `cert_verify_chain.cpp`, `csr_generate.cpp` |
+| **Trust Store** | `trust_store_usage.cpp` |
+| **Enterprise PKI** | `enterprise.cpp` (policy constraints, name constraints) |
+| **Verification** | `simple_verify_server.cpp`, `simple_verify_client.cpp`, `verify_netpipe.cpp` |
 
 ## License
 
-Licensed under the [MIT License](LICENSE).
+MIT License - see [LICENSE](./LICENSE) for details.
 
----
+## Acknowledgments
 
-Lockey keeps the fast libsodium internals and leaves the legacy interfaces behind. If you need modern crypto primitives without a heavyweight dependency graph, this is it.
+Made possible thanks to [these amazing projects](./ACKNOWLEDGMENTS.md).
+
+**Core Dependencies:**
+- [libsodium](https://github.com/jedisct1/libsodium) - Modern, portable cryptography library
+- [netpipe](https://github.com/robolibs/netpipe) - Lightweight network protocol transport
+- [datapod](https://github.com/robolibs/datapod) - POD-compatible containers for robotics
+- [doctest](https://github.com/doctest/doctest) - Fast C++ testing framework

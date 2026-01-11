@@ -4,13 +4,11 @@
  * This example demonstrates how to use the Lockey Verification Protocol (LVP)
  * to check certificate revocation status via a netpipe server.
  *
- * Build with: cmake -DLOCKEY_HAS_VERIFY=ON -DLOCKEY_BUILD_EXAMPLES=ON
+ * Build with: cmake -DLOCKEY_BUILD_EXAMPLES=ON
  */
 
 #include <iostream>
 #include <lockey/lockey.hpp>
-
-#ifdef LOCKEY_HAS_VERIFY
 #include <lockey/verify/client.hpp>
 
 int main(int argc, char *argv[]) {
@@ -123,13 +121,3 @@ int main(int argc, char *argv[]) {
 
     return 0;
 }
-
-#else
-
-int main() {
-    std::cerr << "This example requires LOCKEY_HAS_VERIFY to be enabled\n";
-    std::cerr << "Please rebuild with: cmake -DLOCKEY_HAS_VERIFY=ON -DLOCKEY_BUILD_EXAMPLES=ON\n";
-    return 1;
-}
-
-#endif // LOCKEY_HAS_VERIFY

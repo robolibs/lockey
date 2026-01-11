@@ -3,10 +3,7 @@
  * Tests the netpipe verification server implementation
  */
 
-#define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
 #include <doctest/doctest.h>
-
-#ifdef LOCKEY_HAS_VERIFY
 
 #include <chrono>
 #include <lockey/cert/builder.hpp>
@@ -115,17 +112,17 @@ TEST_CASE("Server - Construction and Configuration") {
 
     SUBCASE("Default configuration") {
         verify::ServerConfig config;
-        config.host = "localhost";
+        config.host = "127.0.0.1";
         config.port = 50052; // Use different port for testing
 
         verify::Server server(handler, config);
-        CHECK(server.address() == "localhost:50052");
+        CHECK(server.address() == "127.0.0.1:50052");
         CHECK_FALSE(server.is_running());
     }
 
     SUBCASE("Set signing key") {
         verify::ServerConfig config;
-        config.host = "localhost";
+        config.host = "127.0.0.1";
         config.port = 50053;
 
         verify::Server server(handler, config);
@@ -144,7 +141,7 @@ TEST_CASE("Server - Construction and Configuration") {
 
     SUBCASE("Set responder certificate") {
         verify::ServerConfig config;
-        config.host = "localhost";
+        config.host = "127.0.0.1";
         config.port = 50054;
 
         verify::Server server(handler, config);
@@ -178,7 +175,7 @@ TEST_CASE("Server - Construction and Configuration") {
 TEST_CASE("Server - Statistics") {
     auto handler = std::make_shared<verify::SimpleRevocationHandler>();
     verify::ServerConfig config;
-    config.host = "localhost";
+    config.host = "127.0.0.1";
     config.port = 50055;
 
     verify::Server server(handler, config);
@@ -199,7 +196,7 @@ TEST_CASE("Server-Client Integration") {
 
     auto handler = std::make_shared<verify::SimpleRevocationHandler>();
     verify::ServerConfig server_config;
-    server_config.host = "localhost";
+    server_config.host = "127.0.0.1";
     server_config.port = 50056;
 
     verify::Server server(handler, server_config);
@@ -242,11 +239,3 @@ TEST_CASE("Server-Client Integration") {
     server.stop();
     CHECK_FALSE(server.is_running());
 }
-
-#else
-
-TEST_CASE("Verify server requires LOCKEY_HAS_VERIFY") {
-    WARN("LOCKEY_HAS_VERIFY not defined - skipping verify server tests");
-}
-
-#endif // LOCKEY_HAS_VERIFY
