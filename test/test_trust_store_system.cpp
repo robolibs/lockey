@@ -4,11 +4,11 @@
 #include <optional>
 #include <string>
 
-#include <lockey/cert/trust_store.hpp>
+#include <keylock/cert/trust_store.hpp>
 
 TEST_SUITE("cert/trust_store_system") {
     TEST_CASE("load_from_system respects SSL_CERT_FILE when set (negative path)") {
-        using namespace lockey::cert;
+        using namespace keylock::cert;
 
         // Save original environment variables
         std::optional<std::string> orig_cert_file;

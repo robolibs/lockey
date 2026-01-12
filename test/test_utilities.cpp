@@ -1,4 +1,4 @@
-#include "lockey/lockey.hpp"
+#include "keylock/keylock.hpp"
 #include <doctest/doctest.h>
 
 TEST_SUITE("Utility Functions") {
@@ -7,21 +7,21 @@ TEST_SUITE("Utility Functions") {
         std::vector<uint8_t> data = {0x48, 0x65, 0x6c, 0x6c, 0x6f}; // "Hello"
         std::string expected_hex = "48656c6c6f";
 
-        auto hex_result = lockey::Lockey::to_hex(data);
+        auto hex_result = keylock::keylock::to_hex(data);
         CHECK(hex_result == expected_hex);
 
         // Test reverse conversion
-        auto data_result = lockey::Lockey::from_hex(hex_result);
+        auto data_result = keylock::keylock::from_hex(hex_result);
         CHECK(data_result == data);
     }
 
     TEST_CASE("Empty data hex conversion") {
         std::vector<uint8_t> empty_data;
 
-        auto hex_result = lockey::Lockey::to_hex(empty_data);
+        auto hex_result = keylock::keylock::to_hex(empty_data);
         CHECK(hex_result.empty());
 
-        auto data_result = lockey::Lockey::from_hex("");
+        auto data_result = keylock::keylock::from_hex("");
         CHECK(data_result.empty());
     }
 
@@ -31,20 +31,20 @@ TEST_SUITE("Utility Functions") {
             all_bytes.push_back(static_cast<uint8_t>(i));
         }
 
-        auto hex_result = lockey::Lockey::to_hex(all_bytes);
+        auto hex_result = keylock::keylock::to_hex(all_bytes);
         CHECK(hex_result.length() == 512); // 256 bytes * 2 hex chars each
 
-        auto data_result = lockey::Lockey::from_hex(hex_result);
+        auto data_result = keylock::keylock::from_hex(hex_result);
         CHECK(data_result == all_bytes);
     }
 
     TEST_CASE("Invalid hex string handling") {
         // Test invalid hex characters
-        auto result1 = lockey::Lockey::from_hex("xyz");
+        auto result1 = keylock::keylock::from_hex("xyz");
         CHECK(result1.empty()); // Should return empty vector for invalid chars
 
         // Test odd length hex string
-        auto result2 = lockey::Lockey::from_hex("48656c6c6");
+        auto result2 = keylock::keylock::from_hex("48656c6c6");
         CHECK(result2.empty()); // Should return empty vector for odd length
 
         MESSAGE("Invalid hex handling returns empty vectors instead of throwing");
@@ -53,11 +53,11 @@ TEST_SUITE("Utility Functions") {
     TEST_CASE("Case insensitive hex conversion") {
         std::vector<uint8_t> data = {0xAB, 0xCD, 0xEF};
 
-        auto hex_lower = lockey::Lockey::to_hex(data);
+        auto hex_lower = keylock::keylock::to_hex(data);
 
         // Test that we can convert back uppercase hex
-        auto data_from_upper = lockey::Lockey::from_hex("ABCDEF");
-        auto data_from_lower = lockey::Lockey::from_hex("abcdef");
+        auto data_from_upper = keylock::keylock::from_hex("ABCDEF");
+        auto data_from_lower = keylock::keylock::from_hex("abcdef");
 
         if (!data_from_upper.empty() && !data_from_lower.empty()) {
             CHECK(data_from_upper == data);
@@ -69,17 +69,17 @@ TEST_SUITE("Utility Functions") {
     }
 
     TEST_CASE("Algorithm name conversion") {
-        CHECK(lockey::Lockey::algorithm_to_string(lockey::Lockey::Algorithm::XChaCha20_Poly1305) ==
+        CHECK(keylock::keylock::algorithm_to_string(keylock::keylock::Algorithm::XChaCha20_Poly1305) ==
               "XChaCha20-Poly1305");
-        CHECK(lockey::Lockey::algorithm_to_string(lockey::Lockey::Algorithm::SecretBox_XSalsa20) ==
+        CHECK(keylock::keylock::algorithm_to_string(keylock::keylock::Algorithm::SecretBox_XSalsa20) ==
               "SecretBox-XSalsa20-Poly1305");
-        CHECK(lockey::Lockey::algorithm_to_string(lockey::Lockey::Algorithm::X25519_Box) == "X25519-Box");
-        CHECK(lockey::Lockey::algorithm_to_string(lockey::Lockey::Algorithm::Ed25519) == "Ed25519");
+        CHECK(keylock::keylock::algorithm_to_string(keylock::keylock::Algorithm::X25519_Box) == "X25519-Box");
+        CHECK(keylock::keylock::algorithm_to_string(keylock::keylock::Algorithm::Ed25519) == "Ed25519");
     }
 
     TEST_CASE("Hash algorithm name conversion") {
-        CHECK(lockey::Lockey::hash_algorithm_to_string(lockey::Lockey::HashAlgorithm::SHA256) == "SHA-256");
-        CHECK(lockey::Lockey::hash_algorithm_to_string(lockey::Lockey::HashAlgorithm::SHA512) == "SHA-512");
-        CHECK(lockey::Lockey::hash_algorithm_to_string(lockey::Lockey::HashAlgorithm::BLAKE2b) == "BLAKE2b");
+        CHECK(keylock::keylock::hash_algorithm_to_string(keylock::keylock::HashAlgorithm::SHA256) == "SHA-256");
+        CHECK(keylock::keylock::hash_algorithm_to_string(keylock::keylock::HashAlgorithm::SHA512) == "SHA-512");
+        CHECK(keylock::keylock::hash_algorithm_to_string(keylock::keylock::HashAlgorithm::BLAKE2b) == "BLAKE2b");
     }
 }

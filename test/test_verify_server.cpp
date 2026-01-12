@@ -6,13 +6,13 @@
 #include <doctest/doctest.h>
 
 #include <chrono>
-#include <lockey/cert/builder.hpp>
-#include <lockey/crypto/context.hpp>
-#include <lockey/verify/client.hpp>
-#include <lockey/verify/server.hpp>
+#include <keylock/cert/builder.hpp>
+#include <keylock/crypto/context.hpp>
+#include <keylock/verify/client.hpp>
+#include <keylock/verify/server.hpp>
 #include <thread>
 
-using namespace lockey;
+using namespace keylock;
 
 TEST_CASE("SimpleRevocationHandler - Basic Operations") {
     verify::SimpleRevocationHandler handler;
@@ -57,10 +57,10 @@ TEST_CASE("SimpleRevocationHandler - Verify Chain") {
     verify::SimpleRevocationHandler handler;
 
     // Generate a test certificate
-    crypto::Lockey lockey(crypto::Lockey::Algorithm::Ed25519);
-    auto ca_keys = lockey.generate_keypair();
+    crypto::Context ctx(crypto::Context::Algorithm::Ed25519);
+    auto ca_keys = ctx.generate_keypair();
 
-    auto dn_result = cert::DistinguishedName::from_string("CN=Test CA,O=Lockey Test");
+    auto dn_result = cert::DistinguishedName::from_string("CN=Test CA,O=keylock Test");
     REQUIRE(dn_result.success);
 
     auto not_before = std::chrono::system_clock::now();
@@ -147,8 +147,8 @@ TEST_CASE("Server - Construction and Configuration") {
         verify::Server server(handler, config);
 
         // Generate a test certificate
-        crypto::Lockey lockey(crypto::Lockey::Algorithm::Ed25519);
-        auto keys = lockey.generate_keypair();
+        crypto::Context ctx(crypto::Context::Algorithm::Ed25519);
+        auto keys = ctx.generate_keypair();
 
         auto dn_result = cert::DistinguishedName::from_string("CN=Responder");
         REQUIRE(dn_result.success);
@@ -202,8 +202,8 @@ TEST_CASE("Server-Client Integration") {
     verify::Server server(handler, server_config);
 
     // Generate a test certificate
-    crypto::Lockey lockey(crypto::Lockey::Algorithm::Ed25519);
-    auto keys = lockey.generate_keypair();
+    crypto::Context ctx(crypto::Context::Algorithm::Ed25519);
+    auto keys = ctx.generate_keypair();
 
     auto dn_result = cert::DistinguishedName::from_string("CN=Test Cert");
     REQUIRE(dn_result.success);

@@ -2,7 +2,7 @@
 #include <vector>
 #include <string>
 #include <cstdio>
-#include "lockey/lockey.hpp"
+#include "keylock/keylock.hpp"
 
 void print_hex(const std::string& label, const std::vector<uint8_t>& data) {
     std::cout << label << ": ";
@@ -16,8 +16,8 @@ void test_symmetric_encryption() {
     std::cout << "\n=== Testing Symmetric Encryption (XChaCha20-Poly1305) ===" << std::endl;
     
     try {
-        lockey::Lockey crypto(lockey::Lockey::Algorithm::XChaCha20_Poly1305, 
-                             lockey::Lockey::HashAlgorithm::SHA256);
+        keylock::keylock crypto(keylock::keylock::Algorithm::XChaCha20_Poly1305, 
+                             keylock::keylock::HashAlgorithm::SHA256);
         
         // Generate a symmetric key
         auto key_result = crypto.generate_symmetric_key(32);
@@ -29,7 +29,7 @@ void test_symmetric_encryption() {
         print_hex("Generated key", key_result.data);
         
         // Test data
-        std::string plaintext_str = "Hello, Lockey! This is a test message for encryption.";
+        std::string plaintext_str = "Hello, keylock! This is a test message for encryption.";
         std::vector<uint8_t> plaintext(plaintext_str.begin(), plaintext_str.end());
         
         std::cout << "Original text: " << plaintext_str << std::endl;
@@ -71,8 +71,8 @@ void test_key_generation() {
     std::cout << "\n=== Testing Key Generation ===" << std::endl;
     
     try {
-        lockey::Lockey crypto(lockey::Lockey::Algorithm::X25519_Box, 
-                             lockey::Lockey::HashAlgorithm::SHA256);
+        keylock::keylock crypto(keylock::keylock::Algorithm::X25519_Box, 
+                             keylock::keylock::HashAlgorithm::SHA256);
         
         auto keypair = crypto.generate_keypair();
         
@@ -91,8 +91,8 @@ void test_digital_signatures() {
     std::cout << "\n=== Testing Digital Signatures (Ed25519) ===" << std::endl;
     
     try {
-        lockey::Lockey crypto(lockey::Lockey::Algorithm::Ed25519, 
-                             lockey::Lockey::HashAlgorithm::SHA256);
+        keylock::keylock crypto(keylock::keylock::Algorithm::Ed25519, 
+                             keylock::keylock::HashAlgorithm::SHA256);
         
         // Generate a key pair
         auto keypair = crypto.generate_keypair();
@@ -131,8 +131,8 @@ void test_hashing() {
     std::cout << "\n=== Testing Hash Functions ===" << std::endl;
     
     try {
-        lockey::Lockey crypto(lockey::Lockey::Algorithm::XChaCha20_Poly1305, 
-                             lockey::Lockey::HashAlgorithm::SHA256);
+        keylock::keylock crypto(keylock::keylock::Algorithm::XChaCha20_Poly1305, 
+                             keylock::keylock::HashAlgorithm::SHA256);
         
         std::string test_data = "The quick brown fox jumps over the lazy dog";
         std::vector<uint8_t> data(test_data.begin(), test_data.end());
@@ -162,13 +162,13 @@ void test_utility_functions() {
         std::vector<uint8_t> test_data = {0x48, 0x65, 0x6c, 0x6c, 0x6f}; // "Hello"
         
         // Test hex conversion
-        std::string hex = lockey::Lockey::to_hex(test_data);
+        std::string hex = keylock::keylock::to_hex(test_data);
         std::cout << "Original data: ";
         for (uint8_t b : test_data) std::cout << static_cast<char>(b);
         std::cout << std::endl;
         std::cout << "Hex representation: " << hex << std::endl;
         
-        auto converted_back = lockey::Lockey::from_hex(hex);
+        auto converted_back = keylock::keylock::from_hex(hex);
         print_hex("Converted back", converted_back);
         
         if (test_data == converted_back) {
@@ -183,7 +183,7 @@ void test_utility_functions() {
 }
 
 int main() {
-    std::cout << "Lockey Cryptographic Library - Test Suite" << std::endl;
+    std::cout << "keylock Cryptographic Library - Test Suite" << std::endl;
     std::cout << "=========================================" << std::endl;
     
     test_symmetric_encryption();

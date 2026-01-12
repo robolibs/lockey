@@ -2,22 +2,22 @@
  * Simple Verification Server Example
  *
  * This example demonstrates how to create a simple netpipe verification server
- * using the lockey::verify::Server API. The server maintains an in-memory
+ * using the keylock::verify::Server API. The server maintains an in-memory
  * revocation list and responds to certificate verification requests.
  *
- * Build with: cmake -DLOCKEY_BUILD_EXAMPLES=ON
+ * Build with: cmake -Dkeylock_BUILD_EXAMPLES=ON
  * Run: ./simple_verify_server [port]
  */
 
 #include <csignal>
 #include <iostream>
-#include <lockey/cert/builder.hpp>
-#include <lockey/lockey.hpp>
-#include <lockey/verify/server.hpp>
+#include <keylock/cert/builder.hpp>
+#include <keylock/keylock.hpp>
+#include <keylock/verify/server.hpp>
 #include <thread>
 
 // Global server instance for signal handling
-lockey::verify::Server *g_server = nullptr;
+keylock::verify::Server *g_server = nullptr;
 
 void signal_handler(int signal) {
     if (signal == SIGINT || signal == SIGTERM) {
@@ -29,7 +29,7 @@ void signal_handler(int signal) {
 }
 
 int main(int argc, char *argv[]) {
-    std::cout << "Lockey Simple Verification Server\n";
+    std::cout << "keylock Simple Verification Server\n";
     std::cout << "==================================\n\n";
 
     // Parse command line arguments
@@ -37,7 +37,7 @@ int main(int argc, char *argv[]) {
     std::string address = "0.0.0.0:" + port;
 
     // Create a simple revocation handler
-    auto handler = std::make_shared<lockey::verify::SimpleRevocationHandler>();
+    auto handler = std::make_shared<keylock::verify::SimpleRevocationHandler>();
 
     // Example: Add some revoked certificates for demonstration
     // In a real application, you would load these from a database or CRL
@@ -53,13 +53,13 @@ int main(int argc, char *argv[]) {
     std::cout << "Added 2 revoked certificates to the list\n\n";
 
     // Configure server
-    lockey::verify::ServerConfig config;
+    keylock::verify::ServerConfig config;
     config.host = "0.0.0.0";
     config.port = static_cast<uint16_t>(std::stoi(port));
     config.max_threads = 4;
 
     std::cout << "Creating server...\n";
-    lockey::verify::Server server(handler, config);
+    keylock::verify::Server server(handler, config);
     g_server = &server;
 
     // Optional: Generate and set signing key for response signatures
@@ -71,16 +71,16 @@ int main(int argc, char *argv[]) {
 
     // Optional: Create and set responder certificate
     std::cout << "Creating responder certificate...\n";
-    lockey::crypto::Lockey lockey(lockey::crypto::Lockey::Algorithm::Ed25519);
-    auto keys = lockey.generate_keypair();
+    keylock::crypto::Context ctx(keylock::crypto::Context::Algorithm::Ed25519);
+    auto keys = ctx.generate_keypair();
 
     auto dn_result =
-        lockey::cert::DistinguishedName::from_string("CN=Lockey Verification Server,O=Example Organization");
+        keylock::cert::DistinguishedName::from_string("CN=keylock Verification Server,O=Example Organization");
     if (dn_result.success) {
         auto not_before = std::chrono::system_clock::now();
         auto not_after = not_before + std::chrono::hours(24 * 365); // 1 year
 
-        lockey::cert::CertificateBuilder builder;
+        keylock::cert::CertificateBuilder builder;
         builder.set_version(3)  // v3 required for extensions
             .set_serial(1)
             .set_subject(dn_result.value)

@@ -2,12 +2,12 @@
 
 #include "cert_test_helpers.hpp"
 
-#include <lockey/cert/trust_store.hpp>
+#include <keylock/cert/trust_store.hpp>
 
 TEST_SUITE("cert/chain") {
     TEST_CASE("chain validation with trust store") {
-        using namespace lockey::cert;
-        lockey::crypto::Lockey::KeyPair root_key, intermediate_key, leaf_key;
+        using namespace keylock::cert;
+        keylock::crypto::Context::KeyPair root_key, intermediate_key, leaf_key;
         auto [root_cert, intermediate_cert, leaf_cert] = cert_test::make_chain(root_key, intermediate_key, leaf_key);
         auto leaf_dn = leaf_cert.tbs().subject;
 

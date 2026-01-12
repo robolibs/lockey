@@ -1,4 +1,4 @@
-#include "lockey/lockey.hpp"
+#include "keylock/keylock.hpp"
 #include <doctest/doctest.h>
 #include <sodium.h>
 
@@ -7,7 +7,7 @@ TEST_SUITE("Asymmetric Encryption") {
                                             0x57, 0x6f, 0x72, 0x6c, 0x64}; // "Hello World"
 
     TEST_CASE("X25519 box encryption/decryption") {
-        lockey::Lockey crypto(lockey::Lockey::Algorithm::X25519_Box);
+        keylock::keylock crypto(keylock::keylock::Algorithm::X25519_Box);
 
         auto keypair = crypto.generate_keypair();
         CHECK(keypair.public_key.size() == crypto_box_PUBLICKEYBYTES);
@@ -24,7 +24,7 @@ TEST_SUITE("Asymmetric Encryption") {
     }
 
     TEST_CASE("Empty data asymmetric encryption") {
-        lockey::Lockey crypto(lockey::Lockey::Algorithm::X25519_Box);
+        keylock::keylock crypto(keylock::keylock::Algorithm::X25519_Box);
         auto keypair = crypto.generate_keypair();
         std::vector<uint8_t> empty_data;
 
@@ -37,7 +37,7 @@ TEST_SUITE("Asymmetric Encryption") {
     }
 
     TEST_CASE("Wrong key for decryption should fail") {
-        lockey::Lockey crypto(lockey::Lockey::Algorithm::X25519_Box);
+        keylock::keylock crypto(keylock::keylock::Algorithm::X25519_Box);
 
         auto keypair1 = crypto.generate_keypair();
         auto keypair2 = crypto.generate_keypair();
@@ -54,7 +54,7 @@ TEST_SUITE("Asymmetric Encryption") {
     }
 
     TEST_CASE("Symmetric algorithms should not support asymmetric encryption") {
-        lockey::Lockey crypto(lockey::Lockey::Algorithm::XChaCha20_Poly1305);
+        keylock::keylock crypto(keylock::keylock::Algorithm::XChaCha20_Poly1305);
         std::vector<uint8_t> dummy_key = {0x01, 0x02, 0x03};
 
         auto encrypt_result = crypto.encrypt_asymmetric(test_data, dummy_key);
@@ -63,7 +63,7 @@ TEST_SUITE("Asymmetric Encryption") {
     }
 
     TEST_CASE("Non-box algorithms reject asymmetric operations") {
-        lockey::Lockey crypto(lockey::Lockey::Algorithm::Ed25519);
+        keylock::keylock crypto(keylock::keylock::Algorithm::Ed25519);
 
         auto encrypt_result = crypto.encrypt_asymmetric(test_data, {0x01});
         CHECK_FALSE(encrypt_result.success);

@@ -1,9 +1,9 @@
-# Lockey X.509 User Guide
+# keylock X.509 User Guide
 
 ## Conceptual Overview
 
-- An X.509 certificate is composed of a TBSCertificate (subject, issuer, validity, subject public key info, extensions), an AlgorithmIdentifier, and a signature. Lockey mirrors this structure through `lockey::cert::Certificate`, `Validity`, `SubjectPublicKeyInfo`, and `RawExtension`.
-- Lockey focuses on modern curves (Ed25519 for signatures, Curve25519 for key exchange). The certificate builder hardens this choice by exposing fluent helpers that only emit safe defaults.
+- An X.509 certificate is composed of a TBSCertificate (subject, issuer, validity, subject public key info, extensions), an AlgorithmIdentifier, and a signature. keylock mirrors this structure through `keylock::cert::Certificate`, `Validity`, `SubjectPublicKeyInfo`, and `RawExtension`.
+- keylock focuses on modern curves (Ed25519 for signatures, Curve25519 for key exchange). The certificate builder hardens this choice by exposing fluent helpers that only emit safe defaults.
 - ASN.1 DER and PEM support are first-class: every parser operates on DER (`ByteSpan`) and higher-level helpers convert between PEM and DER without third-party dependencies.
 - Extension data is preserved in `RawExtension` so you can inspect Key Usage, Basic Constraints, Subject Alt Names, and more without reparsing raw DER.
 
@@ -45,10 +45,10 @@
 - Limit certificate lifetimes (`set_validity`) and use path length constraints for intermediates to avoid unbounded delegation.
 - Always verify results from `build_ed25519`, `load()`, and `validate_chain` and fail closed when operations return `success == false`.
 - Persist PEM/DER files with restrictive permissions (e.g., `0600` on Unix) when writing keys or certificates.
-- Prefer libsodium-backed randomness (`generate_ed25519_keypair`, `Lockey::generate_symmetric_key`) over ad-hoc RNGs.
+- Prefer libsodium-backed randomness (`generate_ed25519_keypair`, `keylock::generate_symmetric_key`) over ad-hoc RNGs.
 
 ## Additional Resources
 
-- Examples directory: `examples/` (CMake builds them automatically when `LOCKEY_BUILD_EXAMPLES=ON`).
+- Examples directory: `examples/` (CMake builds them automatically when `keylock_BUILD_EXAMPLES=ON`).
 - Tests exercise every builder/parser path under `test/`; they are a good reference for edge cases.
 - For more background on ASN.1 and X.509, consult RFC 5280 alongside the upstream reference implementation noted in `TODO.md`.

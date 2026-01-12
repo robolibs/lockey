@@ -4,8 +4,8 @@
 
 TEST_SUITE("cert/validation") {
     TEST_CASE("verify signature against issuer") {
-        using namespace lockey::cert;
-        lockey::crypto::Lockey ctx(lockey::crypto::Lockey::Algorithm::Ed25519);
+        using namespace keylock::cert;
+        keylock::crypto::Context ctx(keylock::crypto::Context::Algorithm::Ed25519);
         auto root_key = ctx.generate_keypair();
         auto leaf_key = ctx.generate_keypair();
         auto root_dn = cert_test::dn_from_string("CN=Root");

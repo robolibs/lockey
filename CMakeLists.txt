@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.15)
 # ==================================================================================================
 # Project configuration
 # ==================================================================================================
-set(PROJECT_NAME lockey)
+set(PROJECT_NAME keylock)
 set(PROJECT_VERSION "0.0.3")
 
 # Dependencies formats:

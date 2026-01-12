@@ -2,16 +2,16 @@
 
 #include "cert_test_helpers.hpp"
 
-#include <lockey/cert/key_utils.hpp>
+#include <keylock/cert/key_utils.hpp>
 
 TEST_SUITE("cert/keys") {
     TEST_CASE("public key DER and fingerprint") {
-        using namespace lockey::cert;
-        lockey::crypto::Lockey::KeyPair key;
+        using namespace keylock::cert;
+        keylock::crypto::Context::KeyPair key;
         auto cert = cert_test::make_self_signed_certificate("Key Test", key);
         auto spki = cert.public_key_der();
         CHECK(!spki.empty());
-        auto fingerprint = cert.fingerprint(lockey::hash::Algorithm::SHA256);
+        auto fingerprint = cert.fingerprint(::keylock::hash::Algorithm::SHA256);
         CHECK(!fingerprint.empty());
     }
 }

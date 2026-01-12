@@ -4,8 +4,8 @@
 
 TEST_SUITE("cert/extensions") {
     TEST_CASE("SAN and key usage verification") {
-        using namespace lockey::cert;
-        lockey::crypto::Lockey ctx(lockey::crypto::Lockey::Algorithm::Ed25519);
+        using namespace keylock::cert;
+        keylock::crypto::Context ctx(keylock::crypto::Context::Algorithm::Ed25519);
         auto key = ctx.generate_keypair();
         auto dn = cert_test::dn_from_string("CN=example.com");
 

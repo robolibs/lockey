@@ -1,4 +1,4 @@
-#include "lockey/lockey.hpp"
+#include "keylock/keylock.hpp"
 #include <cassert>
 #include <cstdio>
 #include <iostream>
@@ -11,16 +11,16 @@ void print_hex(const std::string &label, const std::vector<uint8_t> &data) {
 }
 
 int main() {
-    std::cout << "Comprehensive Lockey (libsodium) demo\n";
+    std::cout << "Comprehensive keylock (libsodium) demo\n";
     std::cout << "=====================================\n\n";
 
-    const std::string message = "Test message for libsodium-backed Lockey";
+    const std::string message = "Test message for libsodium-backed keylock";
     const std::vector<uint8_t> payload(message.begin(), message.end());
 
     // Symmetric encryption with XChaCha20-Poly1305
     {
-        lockey::Lockey crypto(lockey::Lockey::Algorithm::XChaCha20_Poly1305);
-        auto key = crypto.generate_symmetric_key(lockey::utils::Common::XCHACHA20_KEY_SIZE);
+        keylock::keylock crypto(keylock::keylock::Algorithm::XChaCha20_Poly1305);
+        auto key = crypto.generate_symmetric_key(keylock::utils::Common::XCHACHA20_KEY_SIZE);
         assert(key.success);
 
         auto ciphertext = crypto.encrypt(payload, key.data);
@@ -33,8 +33,8 @@ int main() {
 
     // SecretBox XSalsa20-Poly1305
     {
-        lockey::Lockey crypto(lockey::Lockey::Algorithm::SecretBox_XSalsa20);
-        auto key = crypto.generate_symmetric_key(lockey::utils::Common::SECRETBOX_KEY_SIZE);
+        keylock::keylock crypto(keylock::keylock::Algorithm::SecretBox_XSalsa20);
+        auto key = crypto.generate_symmetric_key(keylock::utils::Common::SECRETBOX_KEY_SIZE);
         assert(key.success);
         auto ciphertext = crypto.encrypt(payload, key.data);
         assert(ciphertext.success);
@@ -45,22 +45,22 @@ int main() {
 
     // Hashing
     {
-        lockey::Lockey sha256(lockey::Lockey::Algorithm::XChaCha20_Poly1305,
-                              lockey::Lockey::HashAlgorithm::SHA256);
+        keylock::keylock sha256(keylock::keylock::Algorithm::XChaCha20_Poly1305,
+                              keylock::keylock::HashAlgorithm::SHA256);
         auto digest256 = sha256.hash(payload);
-        assert(digest256.success && digest256.data.size() == lockey::utils::Common::SHA256_DIGEST_SIZE);
+        assert(digest256.success && digest256.data.size() == keylock::utils::Common::SHA256_DIGEST_SIZE);
 
-        lockey::Lockey blake(lockey::Lockey::Algorithm::XChaCha20_Poly1305,
-                             lockey::Lockey::HashAlgorithm::BLAKE2b);
+        keylock::keylock blake(keylock::keylock::Algorithm::XChaCha20_Poly1305,
+                             keylock::keylock::HashAlgorithm::BLAKE2b);
         auto digestBlake = blake.hash(payload);
-        assert(digestBlake.success && digestBlake.data.size() == lockey::utils::Common::BLAKE2B_DIGEST_SIZE);
+        assert(digestBlake.success && digestBlake.data.size() == keylock::utils::Common::BLAKE2B_DIGEST_SIZE);
 
         std::cout << "✓ Hashing (SHA-256 + BLAKE2b) succeeded\n";
     }
 
     // X25519 Box encryption
     {
-        lockey::Lockey box(lockey::Lockey::Algorithm::X25519_Box);
+        keylock::keylock box(keylock::keylock::Algorithm::X25519_Box);
         auto sender = box.generate_keypair();
         auto ciphertext = box.encrypt_asymmetric(payload, sender.public_key);
         assert(ciphertext.success);
@@ -71,7 +71,7 @@ int main() {
 
     // Ed25519 signatures
     {
-        lockey::Lockey signer(lockey::Lockey::Algorithm::Ed25519);
+        keylock::keylock signer(keylock::keylock::Algorithm::Ed25519);
         auto keypair = signer.generate_keypair();
 
         auto signature = signer.sign(payload, keypair.private_key);
@@ -85,8 +85,8 @@ int main() {
 
     // Utility helpers
     {
-        auto hex = lockey::Lockey::to_hex(payload);
-        auto decoded = lockey::Lockey::from_hex(hex);
+        auto hex = keylock::keylock::to_hex(payload);
+        auto decoded = keylock::keylock::from_hex(hex);
         assert(decoded == payload);
 
         std::cout << "✓ Utility conversions round-trip\n";

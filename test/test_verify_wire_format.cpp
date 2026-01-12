@@ -1,11 +1,11 @@
 #include <doctest/doctest.h>
 
-#include <lockey/verify/wire_format.hpp>
+#include <keylock/verify/wire_format.hpp>
 #include <sodium.h>
 
 TEST_SUITE("verify/wire_format") {
     TEST_CASE("serialize and deserialize VerifyRequest") {
-        using namespace lockey::verify::wire;
+        using namespace keylock::verify::wire;
 
         // Create a request
         VerifyRequest req;
@@ -41,7 +41,7 @@ TEST_SUITE("verify/wire_format") {
     }
 
     TEST_CASE("serialize and deserialize VerifyResponse") {
-        using namespace lockey::verify::wire;
+        using namespace keylock::verify::wire;
 
         // Create a response
         VerifyResponse resp;
@@ -85,7 +85,7 @@ TEST_SUITE("verify/wire_format") {
     }
 
     TEST_CASE("serialize and deserialize HealthCheckRequest") {
-        using namespace lockey::verify::wire;
+        using namespace keylock::verify::wire;
 
         HealthCheckRequest req;
 
@@ -103,7 +103,7 @@ TEST_SUITE("verify/wire_format") {
     }
 
     TEST_CASE("serialize and deserialize HealthCheckResponse") {
-        using namespace lockey::verify::wire;
+        using namespace keylock::verify::wire;
 
         HealthCheckResponse resp;
         resp.status = HealthCheckResponse::ServingStatus::SERVING;
@@ -123,7 +123,7 @@ TEST_SUITE("verify/wire_format") {
     }
 
     TEST_CASE("invalid magic bytes rejected") {
-        using namespace lockey::verify::wire;
+        using namespace keylock::verify::wire;
 
         std::vector<uint8_t> bad_data = {0xFF, 0xFF, 0xFF, 0xFF, VERSION, 0x01};
 
@@ -133,7 +133,7 @@ TEST_SUITE("verify/wire_format") {
     }
 
     TEST_CASE("invalid version rejected") {
-        using namespace lockey::verify::wire;
+        using namespace keylock::verify::wire;
 
         std::vector<uint8_t> bad_data = {MAGIC[0],
                                          MAGIC[1],
@@ -148,7 +148,7 @@ TEST_SUITE("verify/wire_format") {
     }
 
     TEST_CASE("request flags operations") {
-        using namespace lockey::verify::wire;
+        using namespace keylock::verify::wire;
 
         RequestFlags flags = RequestFlags::NONE;
         CHECK(static_cast<uint8_t>(flags) == 0x00);
@@ -166,7 +166,7 @@ TEST_SUITE("verify/wire_format") {
     }
 
     TEST_CASE("multiple certificates in chain") {
-        using namespace lockey::verify::wire;
+        using namespace keylock::verify::wire;
 
         VerifyRequest req;
 

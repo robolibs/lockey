@@ -1,11 +1,11 @@
-#include "lockey/lockey.hpp"
+#include "keylock/keylock.hpp"
 #include <doctest/doctest.h>
 #include <sodium.h>
 #include <stdexcept>
 
 TEST_SUITE("Key Generation") {
     TEST_CASE("Symmetric key generation") {
-        lockey::Lockey crypto;
+        keylock::keylock crypto;
 
         // Test default size (32 bytes)
         auto result = crypto.generate_symmetric_key();
@@ -29,10 +29,10 @@ TEST_SUITE("Key Generation") {
     }
 
     TEST_CASE("X25519 key generation") {
-        lockey::Lockey crypto(lockey::Lockey::Algorithm::X25519_Box);
+        keylock::keylock crypto(keylock::keylock::Algorithm::X25519_Box);
 
         auto keypair = crypto.generate_keypair();
-        CHECK(keypair.algorithm == lockey::Lockey::Algorithm::X25519_Box);
+        CHECK(keypair.algorithm == keylock::keylock::Algorithm::X25519_Box);
         CHECK(keypair.public_key.size() == crypto_box_PUBLICKEYBYTES);
         CHECK(keypair.private_key.size() == crypto_box_PUBLICKEYBYTES + crypto_box_SECRETKEYBYTES);
 
@@ -43,16 +43,16 @@ TEST_SUITE("Key Generation") {
     }
 
     TEST_CASE("Ed25519 key generation") {
-        lockey::Lockey crypto(lockey::Lockey::Algorithm::Ed25519);
+        keylock::keylock crypto(keylock::keylock::Algorithm::Ed25519);
 
         auto keypair = crypto.generate_keypair();
-        CHECK(keypair.algorithm == lockey::Lockey::Algorithm::Ed25519);
+        CHECK(keypair.algorithm == keylock::keylock::Algorithm::Ed25519);
         CHECK(keypair.public_key.size() == crypto_sign_ed25519_PUBLICKEYBYTES);
         CHECK(keypair.private_key.size() == crypto_sign_ed25519_SECRETKEYBYTES);
     }
 
     TEST_CASE("Key generation with symmetric algorithm should fail") {
-        lockey::Lockey crypto(lockey::Lockey::Algorithm::XChaCha20_Poly1305);
+        keylock::keylock crypto(keylock::keylock::Algorithm::XChaCha20_Poly1305);
 
         CHECK_THROWS_AS(crypto.generate_keypair(), std::runtime_error);
     }

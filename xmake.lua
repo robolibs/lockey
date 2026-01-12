@@ -1,7 +1,7 @@
 -- Project configuration
 -- NOTE: Due to xmake description domain limitations, PROJECT_NAME must be hardcoded
 --       and kept in sync with the NAME file. The VERSION is read dynamically.
-local PROJECT_NAME = "lockey"
+local PROJECT_NAME = "keylock"
 local PROJECT_VERSION = "0.0.3"
 
 -- Dependencies formats:

@@ -1,20 +1,20 @@
 /**
  * Simple Verification Client Example
  *
- * This example demonstrates how to use the lockey::verify::Client to check
+ * This example demonstrates how to use the keylock::verify::Client to check
  * certificate revocation status against a verification server.
  *
- * Build with: cmake -DLOCKEY_BUILD_EXAMPLES=ON
+ * Build with: cmake -Dkeylock_BUILD_EXAMPLES=ON
  * Run: ./simple_verify_client [server:port]
  */
 
 #include <iostream>
-#include <lockey/cert/builder.hpp>
-#include <lockey/lockey.hpp>
-#include <lockey/verify/client.hpp>
+#include <keylock/cert/builder.hpp>
+#include <keylock/keylock.hpp>
+#include <keylock/verify/client.hpp>
 
 int main(int argc, char *argv[]) {
-    std::cout << "Lockey Simple Verification Client\n";
+    std::cout << "keylock Simple Verification Client\n";
     std::cout << "==================================\n\n";
 
     // Parse command line arguments
@@ -24,10 +24,10 @@ int main(int argc, char *argv[]) {
 
     // Create a test certificate to verify
     std::cout << "Creating test certificate...\n";
-    lockey::crypto::Lockey lockey(lockey::crypto::Lockey::Algorithm::Ed25519);
-    auto keys = lockey.generate_keypair();
+    keylock::crypto::Context ctx(keylock::crypto::Context::Algorithm::Ed25519);
+    auto keys = ctx.generate_keypair();
 
-    auto dn_result = lockey::cert::DistinguishedName::from_string("CN=Test User,O=Example Organization,C=US");
+    auto dn_result = keylock::cert::DistinguishedName::from_string("CN=Test User,O=Example Organization,C=US");
     if (!dn_result.success) {
         std::cerr << "Failed to create DN: " << dn_result.error << "\n";
         return 1;
@@ -36,7 +36,7 @@ int main(int argc, char *argv[]) {
     auto not_before = std::chrono::system_clock::now();
     auto not_after = not_before + std::chrono::hours(24 * 365); // 1 year
 
-    lockey::cert::CertificateBuilder builder;
+    keylock::cert::CertificateBuilder builder;
     builder
         .set_version(3)    // v3 required for extensions
         .set_serial(12345) // Use a serial that's not in the revocation list
@@ -59,11 +59,11 @@ int main(int argc, char *argv[]) {
 
     // Configure client
     std::cout << "Connecting to verification server...\n";
-    lockey::verify::ClientConfig config;
+    keylock::verify::ClientConfig config;
     config.timeout = std::chrono::seconds(10);
     config.max_retry_attempts = 3;
 
-    lockey::verify::Client client(server_addr, config);
+    keylock::verify::Client client(server_addr, config);
 
     // Health check
     std::cout << "Performing health check...\n";
@@ -82,7 +82,7 @@ int main(int argc, char *argv[]) {
 
     // Verify certificate
     std::cout << "Verifying certificate...\n";
-    std::vector<lockey::cert::Certificate> chain = {test_cert};
+    std::vector<keylock::cert::Certificate> chain = {test_cert};
     auto result = client.verify_chain(chain);
 
     if (!result.success) {
@@ -95,12 +95,12 @@ int main(int argc, char *argv[]) {
     std::cout << "\n=== Verification Result ===\n";
 
     switch (response.status) {
-    case lockey::verify::wire::VerifyStatus::GOOD:
+    case keylock::verify::wire::VerifyStatus::GOOD:
         std::cout << "Status: GOOD ✓\n";
         std::cout << "The certificate is valid and not revoked\n";
         break;
 
-    case lockey::verify::wire::VerifyStatus::REVOKED:
+    case keylock::verify::wire::VerifyStatus::REVOKED:
         std::cout << "Status: REVOKED ✗\n";
         std::cout << "Reason: " << response.reason << "\n";
         if (response.revocation_time != std::chrono::system_clock::time_point{}) {
@@ -109,7 +109,7 @@ int main(int argc, char *argv[]) {
         }
         break;
 
-    case lockey::verify::wire::VerifyStatus::UNKNOWN:
+    case keylock::verify::wire::VerifyStatus::UNKNOWN:
         std::cout << "Status: UNKNOWN ?\n";
         std::cout << "The server doesn't have information about this certificate\n";
         if (!response.reason.empty()) {
@@ -134,7 +134,7 @@ int main(int argc, char *argv[]) {
     std::cout << "\n\n=== Testing with Revoked Certificate ===\n";
     std::cout << "Creating certificate with serial number in revocation list...\n";
 
-    lockey::cert::CertificateBuilder revoked_builder;
+    keylock::cert::CertificateBuilder revoked_builder;
     revoked_builder
         .set_version(3)                             // v3 required for extensions
         .set_serial({0x01, 0x02, 0x03, 0x04, 0x05}) // This serial is revoked
@@ -151,7 +151,7 @@ int main(int argc, char *argv[]) {
     }
 
     std::cout << "Verifying revoked certificate...\n";
-    std::vector<lockey::cert::Certificate> revoked_chain = {revoked_cert_result.value};
+    std::vector<keylock::cert::Certificate> revoked_chain = {revoked_cert_result.value};
     auto revoked_result = client.verify_chain(revoked_chain);
 
     if (!revoked_result.success) {
@@ -164,11 +164,11 @@ int main(int argc, char *argv[]) {
     std::cout << "\n=== Verification Result ===\n";
 
     switch (revoked_response.status) {
-    case lockey::verify::wire::VerifyStatus::GOOD:
+    case keylock::verify::wire::VerifyStatus::GOOD:
         std::cout << "Status: GOOD (unexpected!)\n";
         break;
 
-    case lockey::verify::wire::VerifyStatus::REVOKED:
+    case keylock::verify::wire::VerifyStatus::REVOKED:
         std::cout << "Status: REVOKED ✓ (as expected)\n";
         std::cout << "Reason: " << revoked_response.reason << "\n";
         if (revoked_response.revocation_time != std::chrono::system_clock::time_point{}) {
@@ -177,7 +177,7 @@ int main(int argc, char *argv[]) {
         }
         break;
 
-    case lockey::verify::wire::VerifyStatus::UNKNOWN:
+    case keylock::verify::wire::VerifyStatus::UNKNOWN:
         std::cout << "Status: UNKNOWN\n";
         break;
     }

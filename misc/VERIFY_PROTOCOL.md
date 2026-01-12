@@ -1,8 +1,8 @@
-# Lockey Verification Protocol (LVP)
+# keylock Verification Protocol (LVP)
 
 ## Overview
 
-The Lockey Verification Protocol (LVP) is a modern certificate revocation checking system built on netpipe with a custom binary wire format. It provides an efficient, secure alternative to OCSP for Ed25519 certificates.
+The keylock Verification Protocol (LVP) is a modern certificate revocation checking system built on netpipe with a custom binary wire format. It provides an efficient, secure alternative to OCSP for Ed25519 certificates.
 
 ## Design Goals
 
@@ -16,7 +16,7 @@ The Lockey Verification Protocol (LVP) is a modern certificate revocation checki
 ```
 ┌─────────────┐                  ┌─────────────┐
 │   Client    │                  │   Server    │
-│  (Lockey)   │   netpipe/TCP    │  (Lockey)   │
+│  (keylock)   │   netpipe/TCP    │  (keylock)   │
 │             │◄────────────────►│             │
 │ Custom Wire │                  │ Custom Wire │
 │   Format    │                  │   Format    │
@@ -222,23 +222,23 @@ The protocol-level Ed25519 signatures ensure response authenticity regardless of
 ### Basic Verification
 
 ```cpp
-#include <lockey/verify/client.hpp>
+#include <keylock/verify/client.hpp>
 
 // Create client
-lockey::verify::ClientConfig config;
+keylock::verify::ClientConfig config;
 config.timeout = std::chrono::seconds(10);
 config.max_retry_attempts = 3;
 
-lockey::verify::Client client("192.168.1.100:50051", config);
+keylock::verify::Client client("192.168.1.100:50051", config);
 
 // Set responder certificate for signature verification
 client.set_responder_cert(responder_cert);
 
 // Verify certificate chain
 auto result = client.verify_chain(cert_chain);
-if (result.success && result.value.status == lockey::verify::wire::VerifyStatus::GOOD) {
+if (result.success && result.value.status == keylock::verify::wire::VerifyStatus::GOOD) {
     std::cout << "Certificate is valid and not revoked\n";
-} else if (result.success && result.value.status == lockey::verify::wire::VerifyStatus::REVOKED) {
+} else if (result.success && result.value.status == keylock::verify::wire::VerifyStatus::REVOKED) {
     std::cout << "Certificate is revoked: " << result.value.reason << "\n";
 } else {
     std::cerr << "Verification failed: " << result.error << "\n";
@@ -248,14 +248,14 @@ if (result.success && result.value.status == lockey::verify::wire::VerifyStatus:
 ### Batch Verification
 
 ```cpp
-std::vector<std::vector<lockey::cert::Certificate>> chains;
+std::vector<std::vector<keylock::cert::Certificate>> chains;
 // ... populate chains ...
 
 auto result = client.verify_batch(chains);
 if (result.success) {
     for (size_t i = 0; i < result.value.size(); ++i) {
         const auto& resp = result.value[i];
-        if (resp.status == lockey::verify::wire::VerifyStatus::GOOD) {
+        if (resp.status == keylock::verify::wire::VerifyStatus::GOOD) {
             std::cout << "Chain " << i << ": Valid\n";
         } else {
             std::cout << "Chain " << i << ": Revoked - " << resp.reason << "\n";
@@ -307,23 +307,23 @@ Typical message sizes for Ed25519 certificates:
 ### CMake Integration
 
 ```cmake
-find_package(lockey REQUIRED)
-target_link_libraries(your_target lockey::lockey)
+find_package(keylock REQUIRED)
+target_link_libraries(your_target keylock::keylock)
 ```
 
 The verify module is always included and uses the lightweight netpipe transport.
 
 ## Server Implementation
 
-The verification server is included in the lockey library. Both C++ client and server APIs are provided.
+The verification server is included in the keylock library. Both C++ client and server APIs are provided.
 
 ### Server API
 
 ```cpp
-#include <lockey/verify/server.hpp>
+#include <keylock/verify/server.hpp>
 
 // Create a verification handler
-auto handler = std::make_shared<lockey::verify::SimpleRevocationHandler>();
+auto handler = std::make_shared<keylock::verify::SimpleRevocationHandler>();
 
 // Add revoked certificates
 handler->add_revoked_certificate(
@@ -333,13 +333,13 @@ handler->add_revoked_certificate(
 );
 
 // Configure server
-lockey::verify::ServerConfig config;
+keylock::verify::ServerConfig config;
 config.host = "0.0.0.0";
 config.port = 50051;
 config.max_threads = 4;
 
 // Create and start server
-lockey::verify::Server server(handler, config);
+keylock::verify::Server server(handler, config);
 
 // Optional: Set Ed25519 signing key
 std::vector<uint8_t> sk(crypto_sign_SECRETKEYBYTES);
@@ -364,13 +364,13 @@ server.wait();
 Implement your own verification logic by inheriting from `VerificationHandler`:
 
 ```cpp
-class MyCustomHandler : public lockey::verify::VerificationHandler {
+class MyCustomHandler : public keylock::verify::VerificationHandler {
 public:
-    lockey::verify::wire::VerifyResponse verify_chain(
-        const std::vector<lockey::cert::Certificate>& chain,
+    keylock::verify::wire::VerifyResponse verify_chain(
+        const std::vector<keylock::cert::Certificate>& chain,
         std::chrono::system_clock::time_point validation_time) override {
 
-        lockey::verify::wire::VerifyResponse response;
+        keylock::verify::wire::VerifyResponse response;
 
         // Your custom verification logic here
         // - Check against database
@@ -378,7 +378,7 @@ public:
         // - Check LDAP
         // - etc.
 
-        response.status = lockey::verify::wire::VerifyStatus::GOOD;
+        response.status = keylock::verify::wire::VerifyStatus::GOOD;
         response.this_update = std::chrono::system_clock::now();
         response.next_update = response.this_update + std::chrono::hours(24);
 
@@ -386,8 +386,8 @@ public:
     }
 
     // Optional: Optimize batch operations
-    std::vector<lockey::verify::wire::VerifyResponse> verify_batch(
-        const std::vector<std::vector<lockey::cert::Certificate>>& chains) override {
+    std::vector<keylock::verify::wire::VerifyResponse> verify_batch(
+        const std::vector<std::vector<keylock::cert::Certificate>>& chains) override {
         // Batch optimization here
         return VerificationHandler::verify_batch(chains);
     }

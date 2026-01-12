@@ -2,15 +2,15 @@
 
 #include "cert_test_helpers.hpp"
 
-#include <lockey/cert/crl_builder.hpp>
+#include <keylock/cert/crl_builder.hpp>
 
 TEST_SUITE("cert/crl") {
     TEST_CASE("crl builder and revocation") {
-        using namespace lockey::cert;
-        lockey::crypto::Lockey::KeyPair root_key;
+        using namespace keylock::cert;
+        keylock::crypto::Context::KeyPair root_key;
         auto root_cert = cert_test::make_self_signed_certificate("Root CA", root_key);
 
-        auto leaf_key = lockey::crypto::Lockey(lockey::crypto::Lockey::Algorithm::Ed25519).generate_keypair();
+        auto leaf_key = keylock::crypto::Context(keylock::crypto::Context::Algorithm::Ed25519).generate_keypair();
         auto leaf_dn = cert_test::dn_from_string("CN=revoked");
         auto leaf_cert = cert_test::make_certificate(root_cert.tbs().subject, leaf_dn, root_key, leaf_key, false,
                                                      KeyUsageExtension::DigitalSignature);

@@ -5,10 +5,10 @@
 TEST_SUITE("cert/enterprise_extensions") {
 
     TEST_CASE("Enterprise Extension APIs exist and don't crash") {
-        using namespace lockey::cert;
+        using namespace keylock::cert;
 
         // Create a simple self-signed certificate for testing
-        lockey::crypto::Lockey ctx(lockey::crypto::Lockey::Algorithm::Ed25519);
+        keylock::crypto::Context ctx(keylock::crypto::Context::Algorithm::Ed25519);
         auto key = ctx.generate_keypair();
         auto dn = cert_test::dn_from_string("CN=EnterpriseTest");
 

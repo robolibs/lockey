@@ -12,15 +12,15 @@
 
 #include <cstring>
 #include <iostream>
-#include <lockey/cert/asn1_writer.hpp>
-#include <lockey/cert/builder.hpp>
-#include <lockey/cert/certificate.hpp>
-#include <lockey/crypto/context.hpp>
-#include <lockey/lockey.hpp>
+#include <keylock/cert/asn1_writer.hpp>
+#include <keylock/cert/builder.hpp>
+#include <keylock/cert/certificate.hpp>
+#include <keylock/crypto/context.hpp>
+#include <keylock/keylock.hpp>
 
-using namespace lockey;
-using namespace lockey::cert;
-using namespace lockey::cert::der;
+using namespace keylock;
+using namespace keylock::cert;
+using namespace keylock::cert::der;
 
 void print_separator(const std::string &title) {
     std::cout << "\n" << std::string(60, '=') << "\n";
@@ -46,7 +46,7 @@ void example_issuer_alternative_name() {
     std::cout << "  - ca.internal.globalcorp.net (internal)\n\n";
 
     // Create CA key
-    crypto::Lockey ctx(crypto::Lockey::Algorithm::Ed25519);
+    crypto::Context ctx(crypto::Context::Algorithm::Ed25519);
     auto ca_key = ctx.generate_keypair();
 
     // Build CA certificate with IAN extension
@@ -143,7 +143,7 @@ void example_policy_mappings() {
     std::cout << "  EuroTech policy:   1.3.6.1.4.1.99999.1.2.3 (eIDAS)\n";
     std::cout << "  Mapping: These policies are considered equivalent\n\n";
 
-    crypto::Lockey ctx(crypto::Lockey::Algorithm::Ed25519);
+    crypto::Context ctx(crypto::Context::Algorithm::Ed25519);
     auto bridge_ca_key = ctx.generate_keypair();
 
     auto bridge_dn = DistinguishedName::from_string("CN=GlobalCorp-EuroTech Bridge CA,O=Joint Venture,C=US").value;
@@ -246,7 +246,7 @@ void example_policy_constraints() {
     std::cout << "Regulatory requirement (PCI-DSS): All payment certs MUST have policies\n";
     std::cout << "Policy Constraints enforce this requirement downstream\n\n";
 
-    crypto::Lockey ctx(crypto::Lockey::Algorithm::Ed25519);
+    crypto::Context ctx(crypto::Context::Algorithm::Ed25519);
     auto payments_ca_key = ctx.generate_keypair();
 
     auto payments_dn =
@@ -331,7 +331,7 @@ void example_inhibit_any_policy() {
     std::cout << "anyPolicy OID (2.5.29.32.0) matches any policy requirement\n";
     std::cout << "Attackers could abuse this to bypass security controls\n\n";
 
-    crypto::Lockey ctx(crypto::Lockey::Algorithm::Ed25519);
+    crypto::Context ctx(crypto::Context::Algorithm::Ed25519);
     auto gov_ca_key = ctx.generate_keypair();
 
     auto gov_dn = DistinguishedName::from_string("CN=US Government PKI Root,O=U.S. Government,C=US").value;
@@ -384,7 +384,7 @@ void example_inhibit_any_policy() {
 int main() {
     std::cout << "\n";
     std::cout << "╔══════════════════════════════════════════════════════════╗\n";
-    std::cout << "║     LOCKEY ENTERPRISE PKI EXTENSIONS DEMONSTRATION      ║\n";
+    std::cout << "║     keylock ENTERPRISE PKI EXTENSIONS DEMONSTRATION      ║\n";
     std::cout << "║                   Phase 13 Examples                      ║\n";
     std::cout << "╚══════════════════════════════════════════════════════════╝\n";
 
@@ -403,7 +403,7 @@ int main() {
         std::cout << "  ✓ Complex organizational hierarchies\n";
         std::cout << "  ✓ Cross-organizational trust\n";
         std::cout << "  ✓ Enterprise-grade security\n\n";
-        std::cout << "Lockey is now ENTERPRISE-READY! 🚀\n\n";
+        std::cout << "keylock is now ENTERPRISE-READY! 🚀\n\n";
 
     } catch (const std::exception &e) {
         std::cerr << "Error: " << e.what() << "\n";

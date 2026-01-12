@@ -1,9 +1,9 @@
 #include <doctest/doctest.h>
 
-#include <lockey/cert/asn1_common.hpp>
-#include <lockey/cert/oid_registry.hpp>
+#include <keylock/cert/asn1_common.hpp>
+#include <keylock/cert/oid_registry.hpp>
 
-using namespace lockey::cert;
+using namespace keylock::cert;
 
 TEST_SUITE("cert/oid") {
     TEST_CASE("signature oid lookup") {
@@ -16,6 +16,6 @@ TEST_SUITE("cert/oid") {
         Oid oid{{2, 16, 840, 1, 101, 3, 4, 2, 1}};
         auto hash = find_hash_by_oid(oid);
         CHECK(hash.has_value());
-        CHECK(*hash == lockey::hash::Algorithm::SHA256);
+        CHECK(*hash == ::keylock::hash::Algorithm::SHA256);
     }
 }

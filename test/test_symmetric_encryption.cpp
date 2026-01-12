@@ -1,4 +1,4 @@
-#include "lockey/lockey.hpp"
+#include "keylock/keylock.hpp"
 #include <doctest/doctest.h>
 
 TEST_SUITE("Symmetric Encryption") {
@@ -9,7 +9,7 @@ TEST_SUITE("Symmetric Encryption") {
                                                0x17, 0x18, 0x19, 0x1a, 0x1b, 0x1c, 0x1d, 0x1e, 0x1f, 0x20};
 
     TEST_CASE("XChaCha20-Poly1305 encryption/decryption") {
-        lockey::Lockey crypto(lockey::Lockey::Algorithm::XChaCha20_Poly1305);
+        keylock::keylock crypto(keylock::keylock::Algorithm::XChaCha20_Poly1305);
 
         // Test encryption
         auto encrypt_result = crypto.encrypt(test_data, key_material);
@@ -25,7 +25,7 @@ TEST_SUITE("Symmetric Encryption") {
     }
 
     TEST_CASE("SecretBox XSalsa20-Poly1305 encryption/decryption") {
-        lockey::Lockey crypto(lockey::Lockey::Algorithm::SecretBox_XSalsa20);
+        keylock::keylock crypto(keylock::keylock::Algorithm::SecretBox_XSalsa20);
 
         // Test encryption
         auto encrypt_result = crypto.encrypt(test_data, key_material);
@@ -39,7 +39,7 @@ TEST_SUITE("Symmetric Encryption") {
     }
 
     TEST_CASE("Encryption with associated data (AEAD)") {
-        lockey::Lockey crypto(lockey::Lockey::Algorithm::XChaCha20_Poly1305);
+        keylock::keylock crypto(keylock::keylock::Algorithm::XChaCha20_Poly1305);
         std::vector<uint8_t> associated_data = {0x41, 0x44, 0x44, 0x44}; // "ADDD"
 
         // Test encryption with AAD
@@ -59,7 +59,7 @@ TEST_SUITE("Symmetric Encryption") {
     }
 
     TEST_CASE("Empty data encryption") {
-        lockey::Lockey crypto(lockey::Lockey::Algorithm::XChaCha20_Poly1305);
+        keylock::keylock crypto(keylock::keylock::Algorithm::XChaCha20_Poly1305);
         std::vector<uint8_t> empty_data;
 
         auto encrypt_result = crypto.encrypt(empty_data, key_material);
@@ -71,7 +71,7 @@ TEST_SUITE("Symmetric Encryption") {
     }
 
     TEST_CASE("Large data encryption") {
-        lockey::Lockey crypto(lockey::Lockey::Algorithm::XChaCha20_Poly1305);
+        keylock::keylock crypto(keylock::keylock::Algorithm::XChaCha20_Poly1305);
         std::vector<uint8_t> large_data(10000, 0x42); // 10KB of 'B'
 
         auto encrypt_result = crypto.encrypt(large_data, key_material);
@@ -83,7 +83,7 @@ TEST_SUITE("Symmetric Encryption") {
     }
 
     TEST_CASE("Wrong algorithm for symmetric encryption") {
-        lockey::Lockey crypto(lockey::Lockey::Algorithm::Ed25519);
+        keylock::keylock crypto(keylock::keylock::Algorithm::Ed25519);
 
         auto result = crypto.encrypt(test_data, key_material);
         CHECK_FALSE(result.success);

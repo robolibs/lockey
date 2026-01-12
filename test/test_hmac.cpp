@@ -1,4 +1,4 @@
-#include "lockey/lockey.hpp"
+#include "keylock/keylock.hpp"
 #include <doctest/doctest.h>
 
 TEST_SUITE("HMAC Functions") {
@@ -8,8 +8,8 @@ TEST_SUITE("HMAC Functions") {
                                            0x17, 0x18, 0x19, 0x1a, 0x1b, 0x1c, 0x1d, 0x1e, 0x1f, 0x20};
 
     TEST_CASE("HMAC-SHA256") {
-        lockey::Lockey crypto(lockey::Lockey::Algorithm::XChaCha20_Poly1305,
-                              lockey::Lockey::HashAlgorithm::SHA256);
+        keylock::keylock crypto(keylock::keylock::Algorithm::XChaCha20_Poly1305,
+                              keylock::keylock::HashAlgorithm::SHA256);
 
         auto result = crypto.hmac(test_data, hmac_key);
         REQUIRE(result.success);
@@ -17,8 +17,8 @@ TEST_SUITE("HMAC Functions") {
     }
 
     TEST_CASE("HMAC-SHA512") {
-        lockey::Lockey crypto(lockey::Lockey::Algorithm::XChaCha20_Poly1305,
-                              lockey::Lockey::HashAlgorithm::SHA512);
+        keylock::keylock crypto(keylock::keylock::Algorithm::XChaCha20_Poly1305,
+                              keylock::keylock::HashAlgorithm::SHA512);
 
         auto result = crypto.hmac(test_data, hmac_key);
         REQUIRE(result.success);
@@ -26,8 +26,8 @@ TEST_SUITE("HMAC Functions") {
     }
 
     TEST_CASE("HMAC with empty data") {
-        lockey::Lockey crypto(lockey::Lockey::Algorithm::XChaCha20_Poly1305,
-                              lockey::Lockey::HashAlgorithm::SHA256);
+        keylock::keylock crypto(keylock::keylock::Algorithm::XChaCha20_Poly1305,
+                              keylock::keylock::HashAlgorithm::SHA256);
 
         std::vector<uint8_t> empty_data;
         auto result = crypto.hmac(empty_data, hmac_key);
@@ -36,8 +36,8 @@ TEST_SUITE("HMAC Functions") {
     }
 
     TEST_CASE("HMAC with empty key (BLAKE2b should fail)") {
-        lockey::Lockey crypto(lockey::Lockey::Algorithm::XChaCha20_Poly1305,
-                              lockey::Lockey::HashAlgorithm::BLAKE2b);
+        keylock::keylock crypto(keylock::keylock::Algorithm::XChaCha20_Poly1305,
+                              keylock::keylock::HashAlgorithm::BLAKE2b);
 
         std::vector<uint8_t> empty_key;
         auto result = crypto.hmac(test_data, empty_key);
@@ -45,8 +45,8 @@ TEST_SUITE("HMAC Functions") {
     }
 
     TEST_CASE("HMAC consistency") {
-        lockey::Lockey crypto(lockey::Lockey::Algorithm::XChaCha20_Poly1305,
-                              lockey::Lockey::HashAlgorithm::SHA256);
+        keylock::keylock crypto(keylock::keylock::Algorithm::XChaCha20_Poly1305,
+                              keylock::keylock::HashAlgorithm::SHA256);
 
         auto result1 = crypto.hmac(test_data, hmac_key);
         auto result2 = crypto.hmac(test_data, hmac_key);

@@ -1,11 +1,11 @@
-#include "lockey/io/key_exchange.hpp"
-#include "lockey/lockey.hpp"
+#include "keylock/io/key_exchange.hpp"
+#include "keylock/keylock.hpp"
 #include <doctest/doctest.h>
 #include <filesystem>
 #include <fstream>
 
 namespace {
-const std::string test_dir = "/tmp/lockey_test_keys/";
+const std::string test_dir = "/tmp/keylock_test_keys/";
 
 void cleanup_test_dir() {
     if (std::filesystem::exists(test_dir)) {
@@ -23,7 +23,7 @@ TEST_SUITE("Key I/O Operations") {
     TEST_CASE("Save and load X25519 keypair") {
         setup_test_dir();
 
-        lockey::Lockey crypto(lockey::Lockey::Algorithm::X25519_Box);
+        keylock::keylock crypto(keylock::keylock::Algorithm::X25519_Box);
         auto keypair = crypto.generate_keypair();
 
         const std::string pub_file = test_dir + "x25519_public.bin";
@@ -38,7 +38,7 @@ TEST_SUITE("Key I/O Operations") {
         CHECK(loaded_priv.success);
         CHECK(loaded_priv.data == keypair.private_key);
 
-        auto loaded_pub = crypto.load_key_from_file(pub_file, lockey::Lockey::KeyType::PUBLIC);
+        auto loaded_pub = crypto.load_key_from_file(pub_file, keylock::keylock::KeyType::PUBLIC);
         REQUIRE(loaded_pub.success);
 
         std::vector<uint8_t> roundtrip_msg = {'f', 'i', 'l', 'e'};
@@ -54,18 +54,18 @@ TEST_SUITE("Key I/O Operations") {
     TEST_CASE("Save and reuse Ed25519 signing keys") {
         setup_test_dir();
 
-        lockey::Lockey crypto(lockey::Lockey::Algorithm::Ed25519);
+        keylock::keylock crypto(keylock::keylock::Algorithm::Ed25519);
         auto keypair = crypto.generate_keypair();
 
         const std::string pub_file = test_dir + "ed25519_public.bin";
         const std::string priv_file = test_dir + "ed25519_private.bin";
         REQUIRE(crypto.save_keypair_to_files(keypair, pub_file, priv_file));
 
-        auto loaded_priv = crypto.load_key_from_file(priv_file, lockey::Lockey::KeyType::PRIVATE);
+        auto loaded_priv = crypto.load_key_from_file(priv_file, keylock::keylock::KeyType::PRIVATE);
         REQUIRE(loaded_priv.success);
         CHECK(loaded_priv.data == keypair.private_key);
 
-        auto loaded_pub = crypto.load_key_from_file(pub_file, lockey::Lockey::KeyType::PUBLIC);
+        auto loaded_pub = crypto.load_key_from_file(pub_file, keylock::keylock::KeyType::PUBLIC);
         REQUIRE(loaded_pub.success);
         CHECK(loaded_pub.data == keypair.public_key);
 
@@ -81,14 +81,14 @@ TEST_SUITE("Key I/O Operations") {
     TEST_CASE("Save individual key") {
         setup_test_dir();
 
-        lockey::Lockey crypto(lockey::Lockey::Algorithm::X25519_Box);
+        keylock::keylock crypto(keylock::keylock::Algorithm::X25519_Box);
         auto keypair = crypto.generate_keypair();
 
         const std::string key_file = test_dir + "public.bin";
-        bool save_success = crypto.save_key_to_file(keypair.public_key, key_file, lockey::Lockey::KeyType::PUBLIC);
+        bool save_success = crypto.save_key_to_file(keypair.public_key, key_file, keylock::keylock::KeyType::PUBLIC);
         CHECK(save_success);
 
-        auto load_result = crypto.load_key_from_file(key_file, lockey::Lockey::KeyType::PUBLIC);
+        auto load_result = crypto.load_key_from_file(key_file, keylock::keylock::KeyType::PUBLIC);
         CHECK(load_result.success);
         CHECK(load_result.data == keypair.public_key);
 
@@ -96,25 +96,25 @@ TEST_SUITE("Key I/O Operations") {
     }
 
     TEST_CASE("Load non-existent file should fail") {
-        lockey::Lockey crypto(lockey::Lockey::Algorithm::X25519_Box);
-        auto result = crypto.load_key_from_file("/non/existent/file.bin", lockey::Lockey::KeyType::PUBLIC);
+        keylock::keylock crypto(keylock::keylock::Algorithm::X25519_Box);
+        auto result = crypto.load_key_from_file("/non/existent/file.bin", keylock::keylock::KeyType::PUBLIC);
         CHECK_FALSE(result.success);
         CHECK_FALSE(result.error_message.empty());
     }
 
     TEST_CASE("Save to invalid path should fail") {
-        lockey::Lockey crypto(lockey::Lockey::Algorithm::X25519_Box);
+        keylock::keylock crypto(keylock::keylock::Algorithm::X25519_Box);
         auto keypair = crypto.generate_keypair();
 
         bool save_success =
-            crypto.save_key_to_file(keypair.public_key, "/invalid/path/key.bin", lockey::Lockey::KeyType::PUBLIC);
+            crypto.save_key_to_file(keypair.public_key, "/invalid/path/key.bin", keylock::keylock::KeyType::PUBLIC);
         CHECK_FALSE(save_success);
     }
 
     TEST_CASE("Round-trip Ed25519 signature using saved keys") {
         setup_test_dir();
 
-        lockey::Lockey crypto(lockey::Lockey::Algorithm::Ed25519);
+        keylock::keylock crypto(keylock::keylock::Algorithm::Ed25519);
         auto original = crypto.generate_keypair();
 
         const std::string pub_file = test_dir + "round_public.bin";
@@ -124,7 +124,7 @@ TEST_SUITE("Key I/O Operations") {
         auto loaded_priv = crypto.load_keypair_from_files(pub_file, priv_file);
         REQUIRE(loaded_priv.success);
 
-        auto loaded_pub = crypto.load_key_from_file(pub_file, lockey::Lockey::KeyType::PUBLIC);
+        auto loaded_pub = crypto.load_key_from_file(pub_file, keylock::keylock::KeyType::PUBLIC);
         REQUIRE(loaded_pub.success);
 
         std::vector<uint8_t> payload = {'t', 'e', 's', 't'};
@@ -139,7 +139,7 @@ TEST_SUITE("Key I/O Operations") {
     TEST_CASE("Corrupted key files are rejected") {
         setup_test_dir();
 
-        lockey::Lockey crypto(lockey::Lockey::Algorithm::X25519_Box);
+        keylock::keylock crypto(keylock::keylock::Algorithm::X25519_Box);
         auto keypair = crypto.generate_keypair();
 
         const std::string pub_file = test_dir + "corrupted_public.bin";
@@ -152,7 +152,7 @@ TEST_SUITE("Key I/O Operations") {
             priv.write(reinterpret_cast<const char *>(keypair.private_key.data()), 8);
         }
 
-        auto load_priv = crypto.load_key_from_file(priv_file, lockey::Lockey::KeyType::PRIVATE);
+        auto load_priv = crypto.load_key_from_file(priv_file, keylock::keylock::KeyType::PRIVATE);
         CHECK_FALSE(load_priv.success);
         CHECK(load_priv.error_message.find("Unexpected key size") != std::string::npos);
 
@@ -162,7 +162,7 @@ TEST_SUITE("Key I/O Operations") {
     TEST_CASE("Key exchange file envelope round trip") {
         setup_test_dir();
 
-        lockey::Lockey crypto(lockey::Lockey::Algorithm::X25519_Box);
+        keylock::keylock crypto(keylock::keylock::Algorithm::X25519_Box);
         auto recipient = crypto.generate_keypair();
 
         std::vector<uint8_t> payload = {'s', 'e', 'c', 'r', 'e', 't'};
@@ -170,12 +170,12 @@ TEST_SUITE("Key I/O Operations") {
         auto path = test_dir + "envelope.bin";
 
         auto write =
-            lockey::io::key_exchange::write_envelope_to_file(payload, recipient.public_key, path, aad);
+            keylock::io::key_exchange::write_envelope_to_file(payload, recipient.public_key, path, aad);
         REQUIRE(write.success);
 
         std::vector<uint8_t> recovered_aad;
         auto read =
-            lockey::io::key_exchange::read_envelope_from_file(path, recipient.private_key, &recovered_aad);
+            keylock::io::key_exchange::read_envelope_from_file(path, recipient.private_key, &recovered_aad);
         REQUIRE(read.success);
         CHECK(read.data == payload);
         CHECK(recovered_aad == aad);
@@ -184,17 +184,17 @@ TEST_SUITE("Key I/O Operations") {
     }
 
     TEST_CASE("Key exchange shared memory helpers") {
-        lockey::Lockey crypto(lockey::Lockey::Algorithm::X25519_Box);
+        keylock::keylock crypto(keylock::keylock::Algorithm::X25519_Box);
         auto recipient = crypto.generate_keypair();
         std::vector<uint8_t> payload = {'m', 'e', 'm'};
         std::vector<uint8_t> aad = {'s', 'h', 'm'};
 
-        auto env = lockey::io::key_exchange::create_envelope(payload, recipient.public_key, aad);
+        auto env = keylock::io::key_exchange::create_envelope(payload, recipient.public_key, aad);
         REQUIRE(env.success);
 
         std::vector<uint8_t> recovered_aad;
         auto opened =
-            lockey::io::key_exchange::consume_envelope(env.data, recipient.private_key, &recovered_aad);
+            keylock::io::key_exchange::consume_envelope(env.data, recipient.private_key, &recovered_aad);
         REQUIRE(opened.success);
         CHECK(opened.data == payload);
         CHECK(recovered_aad == aad);
@@ -202,12 +202,12 @@ TEST_SUITE("Key I/O Operations") {
         // Direct memory helpers
         std::vector<uint8_t> buffer(env.data.size());
         size_t written = 0;
-        auto written_result = lockey::io::key_exchange::write_envelope_to_memory(
+        auto written_result = keylock::io::key_exchange::write_envelope_to_memory(
             buffer.data(), buffer.size(), written, payload, recipient.public_key, aad);
         REQUIRE(written_result.success);
         CHECK(written == buffer.size());
 
-        auto mem_read = lockey::io::key_exchange::read_envelope_from_memory(
+        auto mem_read = keylock::io::key_exchange::read_envelope_from_memory(
             buffer.data(), buffer.size(), recipient.private_key, &recovered_aad);
         REQUIRE(mem_read.success);
         CHECK(mem_read.data == payload);
@@ -215,11 +215,11 @@ TEST_SUITE("Key I/O Operations") {
     }
 
     TEST_CASE("Key exchange invalid envelope detection") {
-        lockey::Lockey crypto(lockey::Lockey::Algorithm::X25519_Box);
+        keylock::keylock crypto(keylock::keylock::Algorithm::X25519_Box);
         auto recipient = crypto.generate_keypair();
 
         std::vector<uint8_t> bogus = {'i', 'n', 'v', 'a', 'l', 'i', 'd'};
-        auto result = lockey::io::key_exchange::consume_envelope(bogus, recipient.private_key, nullptr);
+        auto result = keylock::io::key_exchange::consume_envelope(bogus, recipient.private_key, nullptr);
         CHECK_FALSE(result.success);
     }
 }

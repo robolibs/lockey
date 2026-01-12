@@ -1,12 +1,12 @@
 #include <doctest/doctest.h>
 
 #include "cert_test_helpers.hpp"
-#include <lockey/cert/builder.hpp>
-#include <lockey/cert/certificate.hpp>
-#include <lockey/crypto/context.hpp>
+#include <keylock/cert/builder.hpp>
+#include <keylock/cert/certificate.hpp>
+#include <keylock/crypto/context.hpp>
 
-using namespace lockey::cert;
-using namespace lockey::crypto;
+using namespace keylock::cert;
+using namespace keylock::crypto;
 
 TEST_SUITE("cert/extended_key_usage") {
 
@@ -156,7 +156,7 @@ TEST_SUITE("cert/extended_key_usage") {
     }
 
     TEST_CASE("CertificateBuilder - set_extended_key_usage with OIDs") {
-        Lockey ctx(Lockey::Algorithm::Ed25519);
+        Context ctx(Context::Algorithm::Ed25519);
         auto key = ctx.generate_keypair();
 
         std::vector<Oid> purposes = {
@@ -183,7 +183,7 @@ TEST_SUITE("cert/extended_key_usage") {
     }
 
     TEST_CASE("CertificateBuilder - set_extended_key_usage empty list") {
-        Lockey ctx(Lockey::Algorithm::Ed25519);
+        Context ctx(Context::Algorithm::Ed25519);
         auto key = ctx.generate_keypair();
 
         CertificateBuilder builder;
@@ -203,7 +203,7 @@ TEST_SUITE("cert/extended_key_usage") {
     }
 
     TEST_CASE("Certificate - extended_key_usage accessor") {
-        Lockey ctx(Lockey::Algorithm::Ed25519);
+        Context ctx(Context::Algorithm::Ed25519);
         auto key = ctx.generate_keypair();
 
         SUBCASE("Certificate with EKU extension") {
@@ -247,7 +247,7 @@ TEST_SUITE("cert/extended_key_usage") {
     }
 
     TEST_CASE("Certificate - TLS Server certificate with EKU") {
-        Lockey ctx(Lockey::Algorithm::Ed25519);
+        Context ctx(Context::Algorithm::Ed25519);
         auto key = ctx.generate_keypair();
 
         std::vector<Oid> purposes = {
@@ -277,7 +277,7 @@ TEST_SUITE("cert/extended_key_usage") {
     }
 
     TEST_CASE("Certificate - TLS Client certificate with EKU") {
-        Lockey ctx(Lockey::Algorithm::Ed25519);
+        Context ctx(Context::Algorithm::Ed25519);
         auto key = ctx.generate_keypair();
 
         std::vector<Oid> purposes = {
@@ -306,7 +306,7 @@ TEST_SUITE("cert/extended_key_usage") {
     }
 
     TEST_CASE("Certificate - Multi-purpose certificate") {
-        Lockey ctx(Lockey::Algorithm::Ed25519);
+        Context ctx(Context::Algorithm::Ed25519);
         auto key = ctx.generate_keypair();
 
         std::vector<Oid> purposes = {
@@ -338,7 +338,7 @@ TEST_SUITE("cert/extended_key_usage") {
     }
 
     TEST_CASE("Certificate - Critical EKU extension") {
-        Lockey ctx(Lockey::Algorithm::Ed25519);
+        Context ctx(Context::Algorithm::Ed25519);
         auto key = ctx.generate_keypair();
 
         std::vector<Oid> purposes = {Oid{{1, 3, 6, 1, 5, 5, 7, 3, 1}}};
@@ -360,7 +360,7 @@ TEST_SUITE("cert/extended_key_usage") {
     }
 
     TEST_CASE("Certificate - Round-trip: Build, serialize, parse") {
-        Lockey ctx(Lockey::Algorithm::Ed25519);
+        Context ctx(Context::Algorithm::Ed25519);
         auto key = ctx.generate_keypair();
 
         std::vector<Oid> purposes = {Oid{{1, 3, 6, 1, 5, 5, 7, 3, 1}}, Oid{{1, 3, 6, 1, 5, 5, 7, 3, 3}}};
@@ -392,7 +392,7 @@ TEST_SUITE("cert/extended_key_usage") {
     }
 
     TEST_CASE("Certificate - OCSP Signing purpose") {
-        Lockey ctx(Lockey::Algorithm::Ed25519);
+        Context ctx(Context::Algorithm::Ed25519);
         auto key = ctx.generate_keypair();
 
         std::vector<Oid> purposes = {

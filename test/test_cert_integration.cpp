@@ -5,13 +5,13 @@
 #include <filesystem>
 #include <fstream>
 
-#include <lockey/cert/crl_builder.hpp>
-#include <lockey/cert/csr_builder.hpp>
-#include <lockey/cert/parser.hpp>
-#include <lockey/cert/pem.hpp>
-#include <lockey/cert/trust_store.hpp>
+#include <keylock/cert/crl_builder.hpp>
+#include <keylock/cert/csr_builder.hpp>
+#include <keylock/cert/parser.hpp>
+#include <keylock/cert/pem.hpp>
+#include <keylock/cert/trust_store.hpp>
 
-using namespace lockey::cert;
+using namespace keylock::cert;
 
 namespace {
 
@@ -28,7 +28,7 @@ namespace {
 TEST_SUITE("cert/integration") {
     TEST_CASE("parse certificate with extensions") {
         // Create a test certificate with Ed25519 (supported algorithm)
-        lockey::crypto::Lockey ctx(lockey::crypto::Lockey::Algorithm::Ed25519);
+        keylock::crypto::Context ctx(keylock::crypto::Context::Algorithm::Ed25519);
         auto key = ctx.generate_keypair();
         auto dn = cert_test::dn_from_string("CN=Test Certificate,O=Test Org,C=US");
 
@@ -62,7 +62,7 @@ TEST_SUITE("cert/integration") {
             return;
         }
         namespace fs = std::filesystem;
-        auto temp_dir = fs::temp_directory_path() / "lockey_openssl";
+        auto temp_dir = fs::temp_directory_path() / "keylock_openssl";
         fs::create_directories(temp_dir);
         auto key_path = temp_dir / "key.pem";
         auto cert_path = temp_dir / "cert.pem";
@@ -76,11 +76,11 @@ TEST_SUITE("cert/integration") {
     }
 
     TEST_CASE("Certificate chain from PEM files") {
-        lockey::crypto::Lockey::KeyPair root_key, intermediate_key, leaf_key;
+        keylock::crypto::Context::KeyPair root_key, intermediate_key, leaf_key;
         auto [root_cert, intermediate_cert, leaf_cert] = cert_test::make_chain(root_key, intermediate_key, leaf_key);
 
         namespace fs = std::filesystem;
-        auto dir = fs::temp_directory_path() / "lockey_chain";
+        auto dir = fs::temp_directory_path() / "keylock_chain";
         fs::create_directories(dir);
         auto root_pem = dir / "root.pem";
         auto intermediate_pem = dir / "intermediate.pem";
@@ -101,7 +101,7 @@ TEST_SUITE("cert/integration") {
     }
 
     TEST_CASE("Expired and revoked certificates") {
-        lockey::crypto::Lockey ctx(lockey::crypto::Lockey::Algorithm::Ed25519);
+        keylock::crypto::Context ctx(keylock::crypto::Context::Algorithm::Ed25519);
         auto key = ctx.generate_keypair();
         auto now = std::chrono::system_clock::now();
         CertificateBuilder builder;

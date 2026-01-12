@@ -3,9 +3,9 @@
 
 #include <doctest/doctest.h>
 
-#include <lockey/cert/asn1_utils.hpp>
+#include <keylock/cert/asn1_utils.hpp>
 
-using namespace lockey::cert;
+using namespace keylock::cert;
 
 TEST_SUITE("cert/asn1") {
     TEST_CASE("parse INTEGER") {

@@ -5,8 +5,8 @@
 
 #include <doctest/doctest.h>
 
-#include <lockey/cert/builder.hpp>
-#include <lockey/cert/key_utils.hpp>
+#include <keylock/cert/builder.hpp>
+#include <keylock/cert/key_utils.hpp>
 
 namespace cert_test {
 
@@ -15,19 +15,19 @@ namespace cert_test {
         return std::chrono::system_clock::from_time_t(1704067200);
     }
 
-    inline lockey::cert::DistinguishedName dn_from_string(std::string_view str) {
-        auto parsed = lockey::cert::DistinguishedName::from_string(str);
+    inline keylock::cert::DistinguishedName dn_from_string(std::string_view str) {
+        auto parsed = keylock::cert::DistinguishedName::from_string(str);
         REQUIRE(parsed.success);
         return parsed.value;
     }
 
-    inline lockey::cert::Certificate make_certificate(const lockey::cert::DistinguishedName &issuer_dn,
-                                                      const lockey::cert::DistinguishedName &subject_dn,
-                                                      const lockey::crypto::Lockey::KeyPair &issuer_key,
-                                                      const lockey::crypto::Lockey::KeyPair &subject_key, bool is_ca,
+    inline keylock::cert::Certificate make_certificate(const keylock::cert::DistinguishedName &issuer_dn,
+                                                      const keylock::cert::DistinguishedName &subject_dn,
+                                                      const keylock::crypto::Context::KeyPair &issuer_key,
+                                                      const keylock::crypto::Context::KeyPair &subject_key, bool is_ca,
                                                       uint16_t key_usage, uint64_t serial = 1) {
         using namespace std::chrono;
-        lockey::cert::CertificateBuilder builder;
+        keylock::cert::CertificateBuilder builder;
         builder.set_serial(serial)
             .set_subject(subject_dn)
             .set_issuer(issuer_dn)
@@ -40,34 +40,34 @@ namespace cert_test {
         return result.value;
     }
 
-    inline lockey::cert::Certificate make_self_signed_certificate(const std::string &subject_cn,
-                                                                  lockey::crypto::Lockey::KeyPair &key_out,
+    inline keylock::cert::Certificate make_self_signed_certificate(const std::string &subject_cn,
+                                                                  keylock::crypto::Context::KeyPair &key_out,
                                                                   uint64_t serial = 1) {
-        lockey::crypto::Lockey ctx(lockey::crypto::Lockey::Algorithm::Ed25519);
+        keylock::crypto::Context ctx(keylock::crypto::Context::Algorithm::Ed25519);
         key_out = ctx.generate_keypair();
         auto dn = dn_from_string("CN=" + subject_cn);
-        return make_certificate(dn, dn, key_out, key_out, true, lockey::cert::KeyUsageExtension::KeyCertSign, serial);
+        return make_certificate(dn, dn, key_out, key_out, true, keylock::cert::KeyUsageExtension::KeyCertSign, serial);
     }
 
-    inline lockey::cert::Certificate make_self_signed_certificate_with_key(const lockey::cert::DistinguishedName &dn,
-                                                                           const lockey::crypto::Lockey::KeyPair &key,
+    inline keylock::cert::Certificate make_self_signed_certificate_with_key(const keylock::cert::DistinguishedName &dn,
+                                                                           const keylock::crypto::Context::KeyPair &key,
                                                                            uint64_t serial) {
-        return make_certificate(dn, dn, key, key, true, lockey::cert::KeyUsageExtension::KeyCertSign, serial);
+        return make_certificate(dn, dn, key, key, true, keylock::cert::KeyUsageExtension::KeyCertSign, serial);
     }
 
-    inline std::tuple<lockey::cert::Certificate, lockey::cert::Certificate, lockey::cert::Certificate>
-    make_chain(lockey::crypto::Lockey::KeyPair &root_key, lockey::crypto::Lockey::KeyPair &intermediate_key,
-               lockey::crypto::Lockey::KeyPair &leaf_key) {
+    inline std::tuple<keylock::cert::Certificate, keylock::cert::Certificate, keylock::cert::Certificate>
+    make_chain(keylock::crypto::Context::KeyPair &root_key, keylock::crypto::Context::KeyPair &intermediate_key,
+               keylock::crypto::Context::KeyPair &leaf_key) {
         auto root = make_self_signed_certificate("Test Root", root_key, 10);
-        lockey::crypto::Lockey ctx(lockey::crypto::Lockey::Algorithm::Ed25519);
+        keylock::crypto::Context ctx(keylock::crypto::Context::Algorithm::Ed25519);
         intermediate_key = ctx.generate_keypair();
         auto intermediate_dn = dn_from_string("CN=Test Intermediate");
         auto intermediate = make_certificate(root.tbs().subject, intermediate_dn, root_key, intermediate_key, true,
-                                             lockey::cert::KeyUsageExtension::KeyCertSign, 11);
+                                             keylock::cert::KeyUsageExtension::KeyCertSign, 11);
         leaf_key = ctx.generate_keypair();
         auto leaf_dn = dn_from_string("CN=Test Leaf");
         auto leaf = make_certificate(intermediate_dn, leaf_dn, intermediate_key, leaf_key, false,
-                                     lockey::cert::KeyUsageExtension::DigitalSignature, 12);
+                                     keylock::cert::KeyUsageExtension::DigitalSignature, 12);
         return {root, intermediate, leaf};
     }
 

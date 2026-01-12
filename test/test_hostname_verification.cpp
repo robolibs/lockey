@@ -4,8 +4,8 @@
 
 TEST_SUITE("cert/hostname_verification") {
     TEST_CASE("DNS SAN exact and wildcard matching") {
-        using namespace lockey::cert;
-        lockey::crypto::Lockey ctx(lockey::crypto::Lockey::Algorithm::Ed25519);
+        using namespace keylock::cert;
+        keylock::crypto::Context ctx(keylock::crypto::Context::Algorithm::Ed25519);
         auto key = ctx.generate_keypair();
         auto dn = cert_test::dn_from_string("CN=www.example.com");
 
@@ -27,8 +27,8 @@ TEST_SUITE("cert/hostname_verification") {
     }
 
     TEST_CASE("SAN precedence over CN and IPv4 SAN handling") {
-        using namespace lockey::cert;
-        lockey::crypto::Lockey ctx(lockey::crypto::Lockey::Algorithm::Ed25519);
+        using namespace keylock::cert;
+        keylock::crypto::Context ctx(keylock::crypto::Context::Algorithm::Ed25519);
         auto key = ctx.generate_keypair();
         auto dn = cert_test::dn_from_string("CN=should-not-be-used.example.com");
 

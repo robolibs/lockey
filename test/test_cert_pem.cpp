@@ -2,12 +2,12 @@
 
 #include "cert_test_helpers.hpp"
 
-#include <lockey/cert/pem.hpp>
+#include <keylock/cert/pem.hpp>
 
 TEST_SUITE("cert/pem") {
     TEST_CASE("certificate pem encode/decode") {
-        using namespace lockey::cert;
-        lockey::crypto::Lockey::KeyPair key;
+        using namespace keylock::cert;
+        keylock::crypto::Context::KeyPair key;
         auto cert = cert_test::make_self_signed_certificate("PEMTest", key);
         auto pem = cert.to_pem();
         auto decoded = pem_decode(pem, "CERTIFICATE");

@@ -2,23 +2,23 @@
 #include <iostream>
 #include <string>
 
-#include "lockey/cert/builder.hpp"
-#include "lockey/cert/key_utils.hpp"
+#include "keylock/cert/builder.hpp"
+#include "keylock/cert/key_utils.hpp"
 
 int main() {
     using namespace std::chrono_literals;
-    using lockey::cert::CertificateBuilder;
+    using keylock::cert::CertificateBuilder;
 
-    const auto ca_key = lockey::cert::generate_ed25519_keypair();
+    const auto ca_key = keylock::cert::generate_ed25519_keypair();
     CertificateBuilder builder;
     const auto now = std::chrono::system_clock::now();
 
-    builder.set_subject_from_string("CN=Lockey Dev CA,O=Lockey Labs,C=US")
+    builder.set_subject_from_string("CN=keylock Dev CA,O=keylock Labs,C=US")
         .set_subject_public_key_ed25519(ca_key.public_key)
         .set_validity(now - 24h, now + 2 * 365 * 24h)
         .set_basic_constraints(true, 1)
-        .set_key_usage(lockey::cert::KeyUsageExtension::KeyCertSign |
-                       lockey::cert::KeyUsageExtension::CRLSign)
+        .set_key_usage(keylock::cert::KeyUsageExtension::KeyCertSign |
+                       keylock::cert::KeyUsageExtension::CRLSign)
         .set_subject_key_identifier(ca_key.public_key);
 
     auto certificate = builder.build_ed25519(ca_key, true);

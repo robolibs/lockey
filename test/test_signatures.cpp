@@ -1,4 +1,4 @@
-#include "lockey/lockey.hpp"
+#include "keylock/keylock.hpp"
 #include <doctest/doctest.h>
 
 TEST_SUITE("Digital Signatures") {
@@ -7,10 +7,10 @@ TEST_SUITE("Digital Signatures") {
         0x65, 0x73, 0x74, 0x20, 0x6d, 0x65, 0x73, 0x73, 0x61, 0x67, 0x65}; // "This is a test message"
 
     TEST_CASE("Ed25519 sign and verify") {
-        lockey::Lockey crypto(lockey::Lockey::Algorithm::Ed25519);
+        keylock::keylock crypto(keylock::keylock::Algorithm::Ed25519);
 
         auto keypair = crypto.generate_keypair();
-        CHECK(keypair.algorithm == lockey::Lockey::Algorithm::Ed25519);
+        CHECK(keypair.algorithm == keylock::keylock::Algorithm::Ed25519);
 
         auto sign_result = crypto.sign(test_message, keypair.private_key);
         REQUIRE(sign_result.success);
@@ -31,7 +31,7 @@ TEST_SUITE("Digital Signatures") {
     }
 
     TEST_CASE("Sign with wrong algorithm should fail") {
-        lockey::Lockey crypto(lockey::Lockey::Algorithm::XChaCha20_Poly1305);
+        keylock::keylock crypto(keylock::keylock::Algorithm::XChaCha20_Poly1305);
         std::vector<uint8_t> dummy_key = {0x01, 0x02, 0x03};
 
         auto result = crypto.sign(test_message, dummy_key);
@@ -40,7 +40,7 @@ TEST_SUITE("Digital Signatures") {
     }
 
     TEST_CASE("Large message signing") {
-        lockey::Lockey crypto(lockey::Lockey::Algorithm::Ed25519);
+        keylock::keylock crypto(keylock::keylock::Algorithm::Ed25519);
 
         auto keypair = crypto.generate_keypair();
         std::vector<uint8_t> large_message(10000, 0x42); // 10KB of 'B'
@@ -53,7 +53,7 @@ TEST_SUITE("Digital Signatures") {
     }
 
     TEST_CASE("Ed25519 signatures deterministic") {
-        lockey::Lockey crypto(lockey::Lockey::Algorithm::Ed25519);
+        keylock::keylock crypto(keylock::keylock::Algorithm::Ed25519);
         auto keypair = crypto.generate_keypair();
 
         auto sig1 = crypto.sign(test_message, keypair.private_key);

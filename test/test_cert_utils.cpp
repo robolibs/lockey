@@ -6,8 +6,8 @@
 
 TEST_SUITE("cert/utils") {
     TEST_CASE("print_info and to_json") {
-        using namespace lockey::cert;
-        lockey::crypto::Lockey::KeyPair key;
+        using namespace keylock::cert;
+        keylock::crypto::Context::KeyPair key;
         auto cert = cert_test::make_self_signed_certificate("Print Test", key);
         std::ostringstream oss;
         cert.print_info(oss);
@@ -17,10 +17,10 @@ TEST_SUITE("cert/utils") {
     }
 
     TEST_CASE("identity equality") {
-        using namespace lockey::cert;
-        lockey::crypto::Lockey::KeyPair key_a;
+        using namespace keylock::cert;
+        keylock::crypto::Context::KeyPair key_a;
         auto cert_a = cert_test::make_self_signed_certificate("Identity", key_a);
-        lockey::crypto::Lockey::KeyPair key_b;
+        keylock::crypto::Context::KeyPair key_b;
         auto cert_b = cert_test::make_self_signed_certificate("Identity", key_b);
         CHECK(!(cert_a == cert_b));
         CHECK(cert_a.equals_identity(cert_a));

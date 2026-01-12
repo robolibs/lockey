@@ -31,7 +31,7 @@
 
 ### <!-- 0 -->⛰️  Features
 
-- Add Lockey Verification Protocol (LVP) support
+- Add keylock Verification Protocol (LVP) support
 - Implement gRPC certificate verification service
 - Feat: Add gRPC verification server with revocation and signing
 - Implement synchronous generic gRPC stub with callbacks
@@ -53,11 +53,11 @@
 ### <!-- 2 -->🚜 Refactor
 
 - Upgrade certificate version to 3 across examples and tests
-- Modularize Lockey codebase with namespaces
+- Modularize keylock codebase with namespaces
 
 ### <!-- 3 -->📚 Documentation
 
-- Add C++ Lockey Verification Protocol server and docs
+- Add C++ keylock Verification Protocol server and docs
 - Add comprehensive X.509 certificate management examples
 - Feat: Add X.509 toolkit and certificate integration tests
 
@@ -73,11 +73,11 @@
 
 ### <!-- 0 -->⛰️  Features
 
-- Migrate Lockey to libsodium-only primitives (XChaCha20, SecretBox, X25519, Ed25519, SHA-256/SHA-512/BLAKE2b)
+- Migrate keylock to libsodium-only primitives (XChaCha20, SecretBox, X25519, Ed25519, SHA-256/SHA-512/BLAKE2b)
 - Remove legacy RSA/ECDSA/AES engines along with every OpenSSL comparison helper
 - Add authenticated key-exchange envelopes for file/shared-memory transport
-- Split the library into `lockey::crypto`, `lockey::hash`, `lockey::io`, and `lockey::utils` namespaces with matching src/include layout
-- Add examples comparing Lockey with OpenSSL chains
+- Split the library into `keylock::crypto`, `keylock::hash`, `keylock::io`, and `keylock::utils` namespaces with matching src/include layout
+- Add examples comparing keylock with OpenSSL chains
 - Implement support for elliptic curve cryptography
 - Feat: Add BLAKE2b hash and improve crypto tests
 - Refine and standardize deterministic cryptography functions
@@ -89,7 +89,7 @@
 - Add cryptographic algorithms and demos
 - Implement common cryptographic hashing algorithms
 - Add key I/O example
-- Feat: Add universal cryptographic support to Lockey
+- Feat: Add universal cryptographic support to keylock
 - Feat(crypto): Implement RSA encryption and signing
 - Init
 - Init
@@ -99,7 +99,7 @@
 - Remove unused simple RSA implementation usage
 - Refactor crypto implementation details
 - Replace internal crypto header
-- Consolidate lockey and simplify testing examples
+- Consolidate keylock and simplify testing examples
 
 ### <!-- 3 -->📚 Documentation
 

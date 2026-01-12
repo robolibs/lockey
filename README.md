@@ -1,6 +1,6 @@
 <img align="right" width="26%" src="./misc/logo.png">
 
-# Lockey
+# keylock
 
 A lightweight C++20 libsodium wrapper with a complete Ed25519-focused X.509 certificate toolkit.
 
@@ -10,9 +10,9 @@ See [TODO.md](./TODO.md) for the complete development plan and current progress.
 
 ## Overview
 
-Lockey wraps the battle-tested **libsodium** cryptography library in a clean, modern C++20 API. It provides only modern, authenticated primitives: XChaCha20-Poly1305 for symmetric encryption, X25519 sealed boxes for public-key encryption, Ed25519 for digital signatures, and SHA-256/SHA-512/BLAKE2b for hashing. No RSA, no ECDSA, no legacy baggage.
+keylock wraps the battle-tested **libsodium** cryptography library in a clean, modern C++20 API. It provides only modern, authenticated primitives: XChaCha20-Poly1305 for symmetric encryption, X25519 sealed boxes for public-key encryption, Ed25519 for digital signatures, and SHA-256/SHA-512/BLAKE2b for hashing. No RSA, no ECDSA, no legacy baggage.
 
-Beyond cryptographic primitives, Lockey includes a complete X.509 certificate toolkit built entirely in pure C++. The library implements its own ASN.1 DER parser and encoder without any external dependencies like OpenSSL or Boost. This enables full certificate parsing, generation, validation, and chain verification using modern Ed25519 signatures throughout.
+Beyond cryptographic primitives, keylock includes a complete X.509 certificate toolkit built entirely in pure C++. The library implements its own ASN.1 DER parser and encoder without any external dependencies like OpenSSL or Boost. This enables full certificate parsing, generation, validation, and chain verification using modern Ed25519 signatures throughout.
 
 The design philosophy prioritizes safety and simplicity. All fallible operations return result types instead of throwing exceptions. Builder patterns provide fluent APIs for constructing certificates, CSRs, and CRLs. An optional verification protocol offers a lightweight OCSP alternative using netpipe transport, adding zero overhead when disabled.
 
@@ -20,7 +20,7 @@ The design philosophy prioritizes safety and simplicity. All fallible operations
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                              LOCKEY LIBRARY                                 │
+│                              keylock LIBRARY                                 │
 ├───────────────┬───────────────┬───────────────┬───────────────┬─────────────┤
 │    CRYPTO     │     CERT      │     HASH      │      IO       │   VERIFY    │
 │               │               │               │               │  (optional) │
@@ -58,13 +58,13 @@ VERIFY ─────► Optional netpipe-based certificate verification protoc
 ```cmake
 include(FetchContent)
 FetchContent_Declare(
-  lockey
-  GIT_REPOSITORY https://github.com/robolibs/lockey
+  keylock
+  GIT_REPOSITORY https://github.com/robolibs/keylock
   GIT_TAG main
 )
-FetchContent_MakeAvailable(lockey)
+FetchContent_MakeAvailable(keylock)
 
-target_link_libraries(your_target PRIVATE lockey)
+target_link_libraries(your_target PRIVATE keylock)
 ```
 
 ### Recommended: XMake
@@ -78,11 +78,11 @@ curl -fsSL https://xmake.io/shget.text | bash
 
 **Add to your xmake.lua:**
 ```lua
-add_requires("lockey")
+add_requires("keylock")
 
 target("your_target")
     set_kind("binary")
-    add_packages("lockey")
+    add_packages("keylock")
     add_files("src/*.cpp")
 ```
 
@@ -119,7 +119,7 @@ curl -fsSL https://get.jetpack.io/devbox | bash
 
 **4. Use the environment:**
 ```bash
-cd lockey
+cd keylock
 direnv allow  # Allow .envrc (one-time)
 # Environment automatically loaded! All dependencies available.
 
@@ -131,11 +131,11 @@ xmake        # or cmake, make, etc.
 ### Basic Usage
 
 ```cpp
-#include <lockey/lockey.hpp>
+#include <keylock/keylock.hpp>
 
 int main() {
     // Symmetric encryption with XChaCha20-Poly1305
-    lockey::crypto::Lockey crypto(lockey::crypto::Lockey::Algorithm::XChaCha20_Poly1305);
+    keylock::crypto::Context crypto(keylock::crypto::Context::Algorithm::XChaCha20_Poly1305);
 
     auto key = crypto.generate_symmetric_key();
     std::vector<uint8_t> message = {'H', 'e', 'l', 'l', 'o'};
@@ -145,7 +145,7 @@ int main() {
     // plaintext.data == message
 
     // Digital signatures with Ed25519
-    lockey::crypto::Lockey signer(lockey::crypto::Lockey::Algorithm::Ed25519);
+    keylock::crypto::Context signer(keylock::crypto::Context::Algorithm::Ed25519);
     auto keypair = signer.generate_keypair();
 
     auto signature = signer.sign(message, keypair.private_key);
@@ -157,15 +157,15 @@ int main() {
 ### Advanced Usage
 
 ```cpp
-#include <lockey/lockey.hpp>
-#include <lockey/cert/builder.hpp>
-#include <lockey/cert/trust_store.hpp>
+#include <keylock/keylock.hpp>
+#include <keylock/cert/builder.hpp>
+#include <keylock/cert/trust_store.hpp>
 
 int main() {
-    using namespace lockey::cert;
+    using namespace keylock::cert;
 
     // Generate Ed25519 keypair for certificate
-    lockey::crypto::Lockey ctx(lockey::crypto::Lockey::Algorithm::Ed25519);
+    keylock::crypto::Context ctx(keylock::crypto::Context::Algorithm::Ed25519);
     auto ca_keys = ctx.generate_keypair();
 
     // Build a self-signed CA certificate
@@ -208,7 +208,7 @@ int main() {
 
 - **Modern Cryptography Only** - XChaCha20-Poly1305 AEAD encryption with 256-bit keys and 192-bit nonces, X25519 sealed boxes for public-key encryption, Ed25519 signatures. No RSA, no ECDSA, no legacy algorithms.
   ```cpp
-  lockey::crypto::Lockey box(lockey::crypto::Lockey::Algorithm::X25519_Box);
+  keylock::crypto::Context box(keylock::crypto::Context::Algorithm::X25519_Box);
   auto recipient = box.generate_keypair();
   auto sealed = box.encrypt_asymmetric(data, recipient.public_key);
   auto opened = box.decrypt_asymmetric(sealed.data, recipient.private_key);
@@ -245,26 +245,26 @@ int main() {
 
 - **Cryptographic Hashing** - SHA-256, SHA-512, and BLAKE2b with HMAC support for all algorithms.
   ```cpp
-  auto digest = lockey::hash::digest(lockey::hash::Algorithm::SHA256, data);
-  auto mac = lockey::hash::hmac(lockey::hash::Algorithm::BLAKE2b, data, key);
+  auto digest = keylock::hash::digest(keylock::hash::Algorithm::SHA256, data);
+  auto mac = keylock::hash::hmac(keylock::hash::Algorithm::BLAKE2b, data, key);
   ```
 
 - **Secure Key Exchange** - X25519 sealed box envelopes with optional Associated Authenticated Data (AAD) for secure file encryption and key transport.
   ```cpp
-  auto envelope = lockey::io::create_envelope(payload, recipient_public_key, aad);
-  lockey::io::write_envelope_to_file(envelope.data, "encrypted.bin");
+  auto envelope = keylock::io::create_envelope(payload, recipient_public_key, aad);
+  keylock::io::write_envelope_to_file(envelope.data, "encrypted.bin");
   ```
 
 - **Verification Protocol** - Lightweight netpipe-based OCSP alternative with Ed25519-signed responses and replay protection.
   ```cpp
   // Client
-  lockey::verify::Client client("localhost:50051");
+  keylock::verify::Client client("localhost:50051");
   auto result = client.verify_chain(certificate_chain);
 
   // Server with custom handler
-  auto handler = std::make_shared<lockey::verify::SimpleRevocationHandler>();
+  auto handler = std::make_shared<keylock::verify::SimpleRevocationHandler>();
   handler->add_revoked_certificate(serial, "Key compromise");
-  lockey::verify::Server server(handler, config);
+  keylock::verify::Server server(handler, config);
   server.start_async();
   ```
 
@@ -282,8 +282,8 @@ make test     # Run 34-test suite
 
 # Using CMake directly
 cmake -S . -B build \
-    -DLOCKEY_BUILD_EXAMPLES=ON \
-    -DLOCKEY_ENABLE_TESTS=ON
+    -Dkeylock_BUILD_EXAMPLES=ON \
+    -Dkeylock_ENABLE_TESTS=ON
 cmake --build build
 ctest --test-dir build --output-on-failure
 
@@ -301,9 +301,9 @@ xmake test
 **Build Options:**
 | Option | Default | Description |
 |--------|---------|-------------|
-| `LOCKEY_BUILD_EXAMPLES` | OFF | Build 14 example programs |
-| `LOCKEY_ENABLE_TESTS` | OFF | Build test suite |
-| `LOCKEY_ENABLE_SIMD` | ON | Enable SIMD optimizations (AVX2/NEON) |
+| `keylock_BUILD_EXAMPLES` | OFF | Build 14 example programs |
+| `keylock_ENABLE_TESTS` | OFF | Build test suite |
+| `keylock_ENABLE_SIMD` | ON | Enable SIMD optimizations (AVX2/NEON) |
 
 ## Documentation
 
@@ -316,7 +316,7 @@ Working examples in [`examples/`](./examples/):
 
 | Category | Files |
 |----------|-------|
-| **Cryptography** | `main.cpp`, `test_lockey.cpp`, `test_comprehensive.cpp` |
+| **Cryptography** | `main.cpp`, `test_keylock.cpp`, `test_comprehensive.cpp` |
 | **Certificates** | `cert_generate_self_signed.cpp`, `cert_generate_ca.cpp`, `cert_parse_and_print.cpp`, `cert_sign_csr.cpp`, `cert_verify_chain.cpp`, `csr_generate.cpp` |
 | **Trust Store** | `trust_store_usage.cpp` |
 | **Enterprise PKI** | `enterprise.cpp` (policy constraints, name constraints) |

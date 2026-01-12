@@ -1,11 +1,11 @@
-#include "lockey/lockey.hpp"
+#include "keylock/keylock.hpp"
 #include <iostream>
 #include <vector>
 
 int main() {
     try {
-        lockey::Lockey crypto(lockey::Lockey::Algorithm::XChaCha20_Poly1305);
-        std::cout << "✓ Lockey construction successful" << std::endl;
+        keylock::keylock crypto(keylock::keylock::Algorithm::XChaCha20_Poly1305);
+        std::cout << "✓ keylock construction successful" << std::endl;
 
         std::vector<uint8_t> data = {'H', 'e', 'l', 'l', 'o'};
         auto key = crypto.generate_symmetric_key().data;
@@ -27,7 +27,7 @@ int main() {
             std::cout << "✗ Hash failed: " << hash_result.error_message << std::endl;
         }
 
-        auto hex = lockey::Lockey::to_hex(data);
+        auto hex = keylock::keylock::to_hex(data);
         std::cout << "✓ Hex conversion: " << hex << std::endl;
 
         std::cout << "All basic tests completed!" << std::endl;

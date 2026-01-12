@@ -2,8 +2,8 @@
 #include <iostream>
 #include <string>
 
-#include "lockey/cert/builder.hpp"
-#include "lockey/cert/key_utils.hpp"
+#include "keylock/cert/builder.hpp"
+#include "keylock/cert/key_utils.hpp"
 
 namespace {
 
@@ -15,17 +15,17 @@ void announce(const std::string &path) {
 
 int main() {
     using namespace std::chrono_literals;
-    using lockey::cert::CertificateBuilder;
+    using keylock::cert::CertificateBuilder;
 
-    const auto subject_key = lockey::cert::generate_ed25519_keypair();
+    const auto subject_key = keylock::cert::generate_ed25519_keypair();
     CertificateBuilder builder;
     const auto now = std::chrono::system_clock::now();
 
-    builder.set_subject_from_string("CN=Lockey Self-Signed,O=Lockey,C=US")
+    builder.set_subject_from_string("CN=keylock Self-Signed,O=keylock,C=US")
         .set_subject_public_key_ed25519(subject_key.public_key)
         .set_validity(now - 1h, now + 365 * 24h)
         .set_basic_constraints(false, std::nullopt)
-        .set_key_usage(lockey::cert::KeyUsageExtension::DigitalSignature);
+        .set_key_usage(keylock::cert::KeyUsageExtension::DigitalSignature);
 
     auto certificate = builder.build_ed25519(subject_key, true);
     if (!certificate.success) {

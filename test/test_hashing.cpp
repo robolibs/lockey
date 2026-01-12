@@ -1,4 +1,4 @@
-#include "lockey/lockey.hpp"
+#include "keylock/keylock.hpp"
 #include <doctest/doctest.h>
 
 TEST_SUITE("Hash Functions") {
@@ -6,8 +6,8 @@ TEST_SUITE("Hash Functions") {
     const std::vector<uint8_t> empty_data;
 
     TEST_CASE("SHA-256 hashing") {
-        lockey::Lockey crypto(lockey::Lockey::Algorithm::XChaCha20_Poly1305,
-                              lockey::Lockey::HashAlgorithm::SHA256);
+        keylock::keylock crypto(keylock::keylock::Algorithm::XChaCha20_Poly1305,
+                              keylock::keylock::HashAlgorithm::SHA256);
 
         auto result = crypto.hash(test_data);
         REQUIRE(result.success);
@@ -21,8 +21,8 @@ TEST_SUITE("Hash Functions") {
     }
 
     TEST_CASE("SHA-512 hashing") {
-        lockey::Lockey crypto(lockey::Lockey::Algorithm::XChaCha20_Poly1305,
-                              lockey::Lockey::HashAlgorithm::SHA512);
+        keylock::keylock crypto(keylock::keylock::Algorithm::XChaCha20_Poly1305,
+                              keylock::keylock::HashAlgorithm::SHA512);
 
         auto result = crypto.hash(test_data);
         REQUIRE(result.success);
@@ -31,8 +31,8 @@ TEST_SUITE("Hash Functions") {
     }
 
     TEST_CASE("BLAKE2b hashing") {
-        lockey::Lockey crypto(lockey::Lockey::Algorithm::XChaCha20_Poly1305,
-                              lockey::Lockey::HashAlgorithm::BLAKE2b);
+        keylock::keylock crypto(keylock::keylock::Algorithm::XChaCha20_Poly1305,
+                              keylock::keylock::HashAlgorithm::BLAKE2b);
 
         auto result = crypto.hash(test_data);
         REQUIRE(result.success);
@@ -41,8 +41,8 @@ TEST_SUITE("Hash Functions") {
     }
 
     TEST_CASE("Empty data hashing") {
-        lockey::Lockey crypto(lockey::Lockey::Algorithm::XChaCha20_Poly1305,
-                              lockey::Lockey::HashAlgorithm::SHA256);
+        keylock::keylock crypto(keylock::keylock::Algorithm::XChaCha20_Poly1305,
+                              keylock::keylock::HashAlgorithm::SHA256);
 
         auto result = crypto.hash(empty_data);
         REQUIRE(result.success);
@@ -57,8 +57,8 @@ TEST_SUITE("Hash Functions") {
     }
 
     TEST_CASE("Large data hashing") {
-        lockey::Lockey crypto(lockey::Lockey::Algorithm::XChaCha20_Poly1305,
-                              lockey::Lockey::HashAlgorithm::SHA256);
+        keylock::keylock crypto(keylock::keylock::Algorithm::XChaCha20_Poly1305,
+                              keylock::keylock::HashAlgorithm::SHA256);
 
         std::vector<uint8_t> large_data(1000000, 0x41); // 1MB of 'A'
 
@@ -70,12 +70,12 @@ TEST_SUITE("Hash Functions") {
     TEST_CASE("Different algorithms produce different hashes") {
         std::vector<uint8_t> data = {0x74, 0x65, 0x73, 0x74}; // "test"
 
-        lockey::Lockey crypto256(lockey::Lockey::Algorithm::XChaCha20_Poly1305,
-                                 lockey::Lockey::HashAlgorithm::SHA256);
-        lockey::Lockey crypto512(lockey::Lockey::Algorithm::XChaCha20_Poly1305,
-                                 lockey::Lockey::HashAlgorithm::SHA512);
-        lockey::Lockey crypto_blake(lockey::Lockey::Algorithm::XChaCha20_Poly1305,
-                                    lockey::Lockey::HashAlgorithm::BLAKE2b);
+        keylock::keylock crypto256(keylock::keylock::Algorithm::XChaCha20_Poly1305,
+                                 keylock::keylock::HashAlgorithm::SHA256);
+        keylock::keylock crypto512(keylock::keylock::Algorithm::XChaCha20_Poly1305,
+                                 keylock::keylock::HashAlgorithm::SHA512);
+        keylock::keylock crypto_blake(keylock::keylock::Algorithm::XChaCha20_Poly1305,
+                                    keylock::keylock::HashAlgorithm::BLAKE2b);
 
         auto hash256 = crypto256.hash(data);
         auto hash512 = crypto512.hash(data);

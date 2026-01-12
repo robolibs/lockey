@@ -1,15 +1,15 @@
 /**
  * Example: Certificate revocation checking using netpipe verification service
  *
- * This example demonstrates how to use the Lockey Verification Protocol (LVP)
+ * This example demonstrates how to use the keylock Verification Protocol (LVP)
  * to check certificate revocation status via a netpipe server.
  *
- * Build with: cmake -DLOCKEY_BUILD_EXAMPLES=ON
+ * Build with: cmake -Dkeylock_BUILD_EXAMPLES=ON
  */
 
 #include <iostream>
-#include <lockey/lockey.hpp>
-#include <lockey/verify/client.hpp>
+#include <keylock/keylock.hpp>
+#include <keylock/verify/client.hpp>
 
 int main(int argc, char *argv[]) {
     if (argc < 2) {
@@ -21,12 +21,12 @@ int main(int argc, char *argv[]) {
     std::string cert_path = argv[1];
     std::string server_addr = (argc >= 3) ? argv[2] : "localhost:50051";
 
-    std::cout << "Lockey Certificate Revocation Check Example\n";
+    std::cout << "keylock Certificate Revocation Check Example\n";
     std::cout << "===========================================\n\n";
 
     // Load certificate
     std::cout << "Loading certificate from: " << cert_path << "\n";
-    auto cert_result = lockey::cert::Certificate::load(cert_path);
+    auto cert_result = keylock::cert::Certificate::load(cert_path);
     if (!cert_result.success || cert_result.value.empty()) {
         std::cerr << "Failed to load certificate: " << cert_result.error << "\n";
         return 1;
@@ -38,15 +38,15 @@ int main(int argc, char *argv[]) {
 
     // Configure netpipe client
     std::cout << "Connecting to verification server: " << server_addr << "\n";
-    lockey::verify::ClientConfig config;
+    keylock::verify::ClientConfig config;
     config.timeout = std::chrono::seconds(10);
     config.max_retry_attempts = 3;
 
-    lockey::verify::Client client(server_addr, config);
+    keylock::verify::Client client(server_addr, config);
 
     // Optional: Set responder certificate for signature verification
     // If you have the server's public certificate, load it and set it:
-    // auto responder_cert_result = lockey::cert::Certificate::load("responder.pem");
+    // auto responder_cert_result = keylock::cert::Certificate::load("responder.pem");
     // if (responder_cert_result.success && !responder_cert_result.value.empty()) {
     //     client.set_responder_cert(responder_cert_result.value[0]);
     //     std::cout << "Responder certificate set for signature verification\n";
@@ -64,7 +64,7 @@ int main(int argc, char *argv[]) {
 
     // Verify certificate revocation status
     std::cout << "Checking certificate revocation status...\n";
-    std::vector<lockey::cert::Certificate> chain = {cert};
+    std::vector<keylock::cert::Certificate> chain = {cert};
     auto result = client.verify_chain(chain);
 
     if (!result.success) {
@@ -78,12 +78,12 @@ int main(int argc, char *argv[]) {
     std::cout << "-------------------\n";
 
     switch (response.status) {
-    case lockey::verify::wire::VerifyStatus::GOOD:
+    case keylock::verify::wire::VerifyStatus::GOOD:
         std::cout << "Status: GOOD ✓\n";
         std::cout << "The certificate is valid and not revoked\n";
         break;
 
-    case lockey::verify::wire::VerifyStatus::REVOKED:
+    case keylock::verify::wire::VerifyStatus::REVOKED:
         std::cout << "Status: REVOKED ✗\n";
         std::cout << "Reason: " << response.reason << "\n";
         if (response.revocation_time != std::chrono::system_clock::time_point{}) {
@@ -92,7 +92,7 @@ int main(int argc, char *argv[]) {
         }
         break;
 
-    case lockey::verify::wire::VerifyStatus::UNKNOWN:
+    case keylock::verify::wire::VerifyStatus::UNKNOWN:
         std::cout << "Status: UNKNOWN ?\n";
         std::cout << "The server doesn't have information about this certificate\n";
         if (!response.reason.empty()) {

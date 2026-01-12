@@ -1,4 +1,4 @@
-#include "lockey/lockey.hpp"
+#include "keylock/keylock.hpp"
 #include <doctest/doctest.h>
 
 #include <filesystem>
@@ -7,8 +7,8 @@ TEST_SUITE("Missing Functionality Detection") {
     const std::vector<uint8_t> test_data = {'d', 'a', 't', 'a'};
 
     TEST_CASE("HMAC implementation available") {
-        lockey::Lockey crypto(lockey::Lockey::Algorithm::XChaCha20_Poly1305,
-                              lockey::Lockey::HashAlgorithm::SHA256);
+        keylock::keylock crypto(keylock::keylock::Algorithm::XChaCha20_Poly1305,
+                              keylock::keylock::HashAlgorithm::SHA256);
         std::vector<uint8_t> data = {0x74, 0x65, 0x73, 0x74};
         std::vector<uint8_t> key = {0x6b, 0x65, 0x79};
 
@@ -18,15 +18,15 @@ TEST_SUITE("Missing Functionality Detection") {
     }
 
     TEST_CASE("BLAKE2b hashing works") {
-        lockey::Lockey crypto(lockey::Lockey::Algorithm::XChaCha20_Poly1305,
-                              lockey::Lockey::HashAlgorithm::BLAKE2b);
+        keylock::keylock crypto(keylock::keylock::Algorithm::XChaCha20_Poly1305,
+                              keylock::keylock::HashAlgorithm::BLAKE2b);
         auto result = crypto.hash({0x01, 0x02});
         CHECK(result.success);
         CHECK_FALSE(result.data.empty());
     }
 
     TEST_CASE("Ed25519 signatures available") {
-        lockey::Lockey crypto(lockey::Lockey::Algorithm::Ed25519);
+        keylock::keylock crypto(keylock::keylock::Algorithm::Ed25519);
         auto keypair = crypto.generate_keypair();
 
         std::vector<uint8_t> message = {0x74, 0x65, 0x73, 0x74};
@@ -38,7 +38,7 @@ TEST_SUITE("Missing Functionality Detection") {
     }
 
     TEST_CASE("X25519 asymmetric encryption available") {
-        lockey::Lockey crypto(lockey::Lockey::Algorithm::X25519_Box);
+        keylock::keylock crypto(keylock::keylock::Algorithm::X25519_Box);
         auto keypair = crypto.generate_keypair();
 
         auto encrypt_result = crypto.encrypt_asymmetric(test_data, keypair.public_key);
@@ -50,11 +50,11 @@ TEST_SUITE("Missing Functionality Detection") {
     }
 
     TEST_CASE("Key I/O round trip") {
-        lockey::Lockey crypto(lockey::Lockey::Algorithm::X25519_Box);
+        keylock::keylock crypto(keylock::keylock::Algorithm::X25519_Box);
         auto keypair = crypto.generate_keypair();
 
-        auto pub = std::filesystem::temp_directory_path() / "lockey_pub.bin";
-        auto priv = std::filesystem::temp_directory_path() / "lockey_priv.bin";
+        auto pub = std::filesystem::temp_directory_path() / "keylock_pub.bin";
+        auto priv = std::filesystem::temp_directory_path() / "keylock_priv.bin";
         auto ok = crypto.save_keypair_to_files(keypair, pub, priv);
         CHECK(ok);
 
@@ -70,21 +70,21 @@ TEST_SUITE("Missing Functionality Detection") {
         std::vector<std::string> missing;
 
         {
-            lockey::Lockey crypto(lockey::Lockey::Algorithm::XChaCha20_Poly1305);
+            keylock::keylock crypto(keylock::keylock::Algorithm::XChaCha20_Poly1305);
             auto res = crypto.encrypt(test_data, {0x01, 0x02, 0x03});
             if (!res.success)
                 missing.push_back("XChaCha20 encryption");
         }
 
         {
-            lockey::Lockey crypto(lockey::Lockey::Algorithm::SecretBox_XSalsa20);
+            keylock::keylock crypto(keylock::keylock::Algorithm::SecretBox_XSalsa20);
             auto res = crypto.encrypt(test_data, {0x01, 0x02, 0x03});
             if (!res.success)
                 missing.push_back("SecretBox encryption");
         }
 
         {
-            lockey::Lockey crypto(lockey::Lockey::Algorithm::X25519_Box);
+            keylock::keylock crypto(keylock::keylock::Algorithm::X25519_Box);
             auto keypair = crypto.generate_keypair();
             auto enc = crypto.encrypt_asymmetric(test_data, keypair.public_key);
             if (!enc.success)
@@ -92,7 +92,7 @@ TEST_SUITE("Missing Functionality Detection") {
         }
 
         {
-            lockey::Lockey crypto(lockey::Lockey::Algorithm::Ed25519);
+            keylock::keylock crypto(keylock::keylock::Algorithm::Ed25519);
             auto keypair = crypto.generate_keypair();
             auto sig = crypto.sign(test_data, keypair.private_key);
             if (!sig.success)
