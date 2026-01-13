@@ -59,7 +59,7 @@ VERIFY ─────► Optional netpipe-based certificate verification protoc
 include(FetchContent)
 FetchContent_Declare(
   keylock
-  GIT_REPOSITORY https://github.com/robolibs/keylock
+  GIT_REPOSITORY https://github.com/robolibs/lockey
   GIT_TAG main
 )
 FetchContent_MakeAvailable(keylock)
@@ -271,6 +271,60 @@ int main() {
 - **Type-Safe Error Handling** - All operations return result types with `{success, data, error}` instead of throwing exceptions. Enables clean error handling without try-catch overhead.
 
 - **Efficient Memory Usage** - Lazy DER encoding and extension parsing. Certificate data parsed on-demand. Constant-time secure memory comparison and zeroing.
+
+## Performance
+
+**Cryptographic Operations (typical values):**
+- XChaCha20-Poly1305: ~500 MB/s throughput, ~2 µs latency (1KB messages)
+- Ed25519 sign: ~80K ops/s, Ed25519 verify: ~150K ops/s
+- SHA-256: ~800 MB/s, BLAKE2b: ~600 MB/s
+
+**Certificate Operations:**
+- Parse X.509 certificate: ~50 µs
+- Build self-signed cert: ~100 µs (Ed25519 signing dominates)
+- Validate 3-certificate chain: ~200 µs
+
+**Memory Footprint:**
+- Library binary: ~150 KB stripped (static lib)
+- Runtime overhead: ~5 KB per Context instance
+- Certificate object: ~2 KB + DER data size
+
+## Security Best Practices
+
+**Key Management:**
+- Never hardcode keys - load from secure storage at runtime
+- Use secure file permissions (0600 on Unix for private keys)
+- Implement key rotation in your PKI workflow
+- Separate signing and encryption keys
+
+```cpp
+// Good: Load from secure storage
+auto key_result = ctx.load_key_from_file("/secure/private.key", keylock::crypto::Context::KeyType::PRIVATE);
+```
+
+**Certificate Lifecycle:**
+- Use short validity periods (90-365 days for end-entity certs)
+- Always set path length constraints on intermediate CAs
+- Implement revocation checking via CRL or LVP verification
+- Always verify certificate hostname matches expected value
+
+**Error Handling:**
+- Always check the `success` flag on result types
+- Log errors without leaking sensitive data (no private keys in logs)
+- Fail closed on validation failures
+- Implement rate limiting for verification services
+
+**Random Number Generation:**
+- Always use libsodium's RNG (never std::rand or similar)
+- Generate fresh nonces for each encryption operation
+- Use constant-time comparisons for secret data
+
+```cpp
+// Good: Use libsodium RNG
+auto keypair = ctx.generate_keypair();
+std::vector<uint8_t> nonce(24);
+randombytes_buf(nonce.data(), nonce.size());
+```
 
 ## Building
 

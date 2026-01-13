@@ -4,7 +4,7 @@
     "cmake@latest",
     "clang@latest",
     "clang-tools@latest",
-    "gcc@13.3",
+    "gcc@latest",
     "gcc.cc.lib",
     "stdenv@latest",
     "cli11@latest",

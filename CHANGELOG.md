@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.0.5] - 2026-01-13
+
+### <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update documentation and examples
+
 ## [0.0.4] - 2026-01-12
 
 ### <!-- 2 -->🚜 Refactor
