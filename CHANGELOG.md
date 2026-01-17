@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.0.11] - 2026-01-17
+
+### <!-- 0 -->⛰️  Features
+
+- Add a comprehensive set of cryptographic primitives
+
+### <!-- 6 -->🧪 Testing
+
+- Add comprehensive test coverage for cryptographic primitives
+
 ## [0.0.10] - 2026-01-17
 
 ### <!-- 0 -->⛰️  Features
