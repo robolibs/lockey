@@ -10,8 +10,8 @@
 #include <vector>
 
 #include <keylock/cert/certificate.hpp>
+#include <keylock/cert/verify/wire_format.hpp>
 #include <keylock/crypto/sign_ed25519/ed25519.hpp>
-#include <keylock/verify/wire_format.hpp>
 
 namespace keylock::verify {
 

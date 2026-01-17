@@ -9,9 +9,9 @@
 #include <keylock/keylock.hpp>
 #include <keylock/cert/builder.hpp>
 #include <keylock/crypto/context.hpp>
-#include <keylock/verify/client.hpp>
-#include <keylock/verify/direct_transport.hpp>
-#include <keylock/verify/server.hpp>
+#include <keylock/cert/verify/client.hpp>
+#include <keylock/cert/verify/direct_transport.hpp>
+#include <keylock/cert/verify/server.hpp>
 
 using namespace keylock;
 

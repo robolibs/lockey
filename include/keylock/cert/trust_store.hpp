@@ -8,8 +8,8 @@
 #include <vector>
 
 #include <keylock/cert/certificate.hpp>
+#include <keylock/cert/files.hpp>
 #include <keylock/cert/pem.hpp>
-#include <keylock/io/files.hpp>
 
 namespace keylock::cert {
 

@@ -11,7 +11,7 @@
 #include <iostream>
 #include <keylock/cert/builder.hpp>
 #include <keylock/keylock.hpp>
-#include <keylock/verify/direct_transport.hpp>
+#include <keylock/cert/verify/direct_transport.hpp>
 
 int main() {
     std::cout << "keylock Simple Verification Example\n";

@@ -16,7 +16,7 @@
 #include <keylock/crypto/rng/randombytes.hpp>
 #include <keylock/crypto/sign_ed25519/ed25519.hpp>
 #include <keylock/keylock.hpp>
-#include <keylock/verify/server.hpp>
+#include <keylock/cert/verify/server.hpp>
 
 int main() {
     std::cout << "keylock Request Processor Example\n";

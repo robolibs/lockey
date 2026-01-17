@@ -6,7 +6,7 @@
 #include "keylock/cert/builder.hpp"
 #include "keylock/cert/certificate.hpp"
 #include "keylock/cert/key_utils.hpp"
-#include "keylock/utils/common.hpp"
+#include "keylock/crypto/common.hpp"
 
 int main(int argc, char **argv) {
     using namespace std::chrono_literals;

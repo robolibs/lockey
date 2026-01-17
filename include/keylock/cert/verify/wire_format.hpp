@@ -6,7 +6,7 @@
 #include <string>
 #include <vector>
 
-#include <keylock/utils/common.hpp>
+#include <keylock/crypto/common.hpp>
 
 namespace keylock::verify::wire {
 

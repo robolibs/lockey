@@ -10,10 +10,10 @@
 #include <string>
 #include <vector>
 
+#include "keylock/cert/files.hpp"
+#include "keylock/crypto/common.hpp"
 #include "keylock/hash/algorithms.hpp"
 #include "keylock/hash/blake2b/blake2b.hpp"
-#include "keylock/io/files.hpp"
-#include "keylock/utils/common.hpp"
 
 // Our crypto implementations
 #include "keylock/crypto/aead_aes256gcm/aead.hpp"

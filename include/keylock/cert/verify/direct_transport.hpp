@@ -1,8 +1,8 @@
 #pragma once
 
-#include <keylock/verify/client.hpp>
-#include <keylock/verify/server.hpp>
-#include <keylock/verify/transport.hpp>
+#include <keylock/cert/verify/client.hpp>
+#include <keylock/cert/verify/server.hpp>
+#include <keylock/cert/verify/transport.hpp>
 
 namespace keylock::verify {
 

@@ -1,4 +1,4 @@
-#include "keylock/io/key_exchange.hpp"
+#include "keylock/cert/key_exchange.hpp"
 #include "keylock/keylock.hpp"
 #include <doctest/doctest.h>
 #include <filesystem>
