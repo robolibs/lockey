@@ -6,6 +6,7 @@
 #include <vector>
 
 #include <keylock/cert/certificate.hpp>
+#include <keylock/verify/transport.hpp>
 #include <keylock/verify/wire_format.hpp>
 
 namespace keylock::verify {
@@ -14,7 +15,6 @@ namespace keylock::verify {
     struct ClientConfig {
         std::chrono::seconds timeout{5};
         int max_retry_attempts{3};
-        int recv_timeout_ms{5000}; // Receive timeout in milliseconds
 
         ClientConfig() = default;
     };
@@ -47,8 +47,8 @@ namespace keylock::verify {
             static Result<T> failure(std::string err) { return Result<T>{false, {}, std::move(err)}; }
         };
 
-        // Constructor with server address (host:port format)
-        explicit Client(const std::string &server_address, const ClientConfig &config = ClientConfig{});
+        // Constructor with transport
+        explicit Client(std::shared_ptr<Transport> transport, const ClientConfig &config = ClientConfig{});
 
         ~Client();
 
@@ -74,11 +74,8 @@ namespace keylock::verify {
         // Health check
         Result<bool> health_check();
 
-        // Check if connected to server
-        bool is_connected() const;
-
-        // Reconnect to server (useful after connection loss)
-        bool reconnect();
+        // Check if transport is ready
+        bool is_ready() const;
 
       private:
         class Impl;

@@ -1,73 +1,25 @@
 #include <keylock/verify/client.hpp>
 #include <keylock/verify/server.hpp> // For method IDs
 
-#include <netpipe/remote/remote.hpp>
-#include <netpipe/stream/tcp.hpp>
-
 #include <sodium.h>
-#include <sstream>
 
 namespace keylock::verify {
-
-    // Helper to parse host:port string
-    static bool parse_address(const std::string &address, std::string &host, uint16_t &port) {
-        auto colon_pos = address.rfind(':');
-        if (colon_pos == std::string::npos) {
-            return false;
-        }
-
-        host = address.substr(0, colon_pos);
-        try {
-            port = static_cast<uint16_t>(std::stoi(address.substr(colon_pos + 1)));
-        } catch (...) {
-            return false;
-        }
-        return true;
-    }
 
     // PIMPL implementation
     class Client::Impl {
       public:
-        std::string server_address;
-        std::string host;
-        uint16_t port{0};
-        netpipe::TcpStream stream;
-        std::unique_ptr<netpipe::remote::Remote<netpipe::remote::Unidirect>> remote;
+        std::shared_ptr<Transport> transport;
         ClientConfig config;
         std::optional<cert::Certificate> responder_cert;
-        bool connected{false};
 
-        explicit Impl(const std::string &address, const ClientConfig &cfg) : server_address(address), config(cfg) {
-            if (!parse_address(address, host, port)) {
-                throw std::invalid_argument("Invalid server address format. Expected host:port");
-            }
-        }
-
-        bool connect() {
-            netpipe::TcpEndpoint endpoint{dp::String(host.c_str()), port};
-            auto connect_result = stream.connect(endpoint);
-
-            if (connect_result.is_err()) {
-                connected = false;
-                return false;
-            }
-
-            stream.set_recv_timeout(config.recv_timeout_ms);
-            remote = std::make_unique<netpipe::remote::Remote<netpipe::remote::Unidirect>>(stream);
-            connected = true;
-            return true;
-        }
+        explicit Impl(std::shared_ptr<Transport> t, const ClientConfig &cfg) : transport(std::move(t)), config(cfg) {}
 
         ~Impl() = default;
     };
 
     // Constructor
-    Client::Client(const std::string &server_address, const ClientConfig &config)
-        : impl_(std::make_unique<Impl>(server_address, config)) {
-
-        // Attempt initial connection
-        impl_->connect();
-    }
+    Client::Client(std::shared_ptr<Transport> transport, const ClientConfig &config)
+        : impl_(std::make_unique<Impl>(std::move(transport), config)) {}
 
     // Destructor
     Client::~Client() = default;
@@ -78,13 +30,7 @@ namespace keylock::verify {
     // Move assignment
     Client &Client::operator=(Client &&) noexcept = default;
 
-    bool Client::is_connected() const { return impl_->connected && impl_->stream.is_connected(); }
-
-    bool Client::reconnect() {
-        impl_->stream.close();
-        impl_->remote.reset();
-        return impl_->connect();
-    }
+    bool Client::is_ready() const { return impl_->transport && impl_->transport->is_ready(); }
 
     // Verify single certificate chain
     Client::Result<Client::Response> Client::verify_chain(const std::vector<cert::Certificate> &chain,
@@ -94,10 +40,8 @@ namespace keylock::verify {
             return Result<Response>::failure("Certificate chain is empty");
         }
 
-        if (!is_connected()) {
-            if (!reconnect()) {
-                return Result<Response>::failure("Failed to connect to server");
-            }
+        if (!is_ready()) {
+            return Result<Response>::failure("Transport is not ready");
         }
 
         // Build wire format request
@@ -116,21 +60,15 @@ namespace keylock::verify {
 
         // Serialize request
         auto request_data = wire::Serializer::serialize(wire_req);
-        netpipe::Message request_msg(request_data.begin(), request_data.end());
 
-        // Call server
-        auto timeout_ms = static_cast<uint32_t>(impl_->config.timeout.count() * 1000);
-        auto call_result = impl_->remote->call(methods::CHECK_CERTIFICATE, request_msg, timeout_ms);
+        // Call via transport
+        auto response_data = impl_->transport->call(methods::CHECK_CERTIFICATE, request_data);
 
-        if (call_result.is_err()) {
-            impl_->connected = false;
-            return Result<Response>::failure("RPC failed: " + std::string(call_result.error().message));
+        if (response_data.empty()) {
+            return Result<Response>::failure("Transport call failed: " + impl_->transport->last_error());
         }
 
         // Deserialize response
-        auto &response_msg = call_result.value();
-        std::vector<uint8_t> response_data(response_msg.begin(), response_msg.end());
-
         wire::VerifyResponse wire_resp;
         if (!wire::Serializer::deserialize(response_data, wire_resp)) {
             return Result<Response>::failure("Failed to deserialize response");
@@ -170,10 +108,8 @@ namespace keylock::verify {
             return Result<std::vector<Response>>::failure("No chains provided");
         }
 
-        if (!is_connected()) {
-            if (!reconnect()) {
-                return Result<std::vector<Response>>::failure("Failed to connect to server");
-            }
+        if (!is_ready()) {
+            return Result<std::vector<Response>>::failure("Transport is not ready");
         }
 
         // Build batch request
@@ -201,21 +137,15 @@ namespace keylock::verify {
 
         // Serialize request
         auto request_data = wire::Serializer::serialize(batch_req);
-        netpipe::Message request_msg(request_data.begin(), request_data.end());
 
-        // Call server
-        auto timeout_ms = static_cast<uint32_t>(impl_->config.timeout.count() * 1000);
-        auto call_result = impl_->remote->call(methods::CHECK_BATCH, request_msg, timeout_ms);
+        // Call via transport
+        auto response_data = impl_->transport->call(methods::CHECK_BATCH, request_data);
 
-        if (call_result.is_err()) {
-            impl_->connected = false;
-            return Result<std::vector<Response>>::failure("RPC failed: " + std::string(call_result.error().message));
+        if (response_data.empty()) {
+            return Result<std::vector<Response>>::failure("Transport call failed: " + impl_->transport->last_error());
         }
 
         // Deserialize response
-        auto &response_msg = call_result.value();
-        std::vector<uint8_t> response_data(response_msg.begin(), response_msg.end());
-
         wire::BatchVerifyResponse batch_resp;
         if (!wire::Serializer::deserialize(response_data, batch_resp)) {
             return Result<std::vector<Response>>::failure("Failed to deserialize batch response");
@@ -247,30 +177,23 @@ namespace keylock::verify {
 
     // Health check
     Client::Result<bool> Client::health_check() {
-        if (!is_connected()) {
-            if (!reconnect()) {
-                return Result<bool>::failure("Failed to connect to server");
-            }
+        if (!is_ready()) {
+            return Result<bool>::failure("Transport is not ready");
         }
 
         wire::HealthCheckRequest req;
 
         // Serialize request
         auto request_data = wire::Serializer::serialize(req);
-        netpipe::Message request_msg(request_data.begin(), request_data.end());
 
-        // Call server with 5 second timeout
-        auto call_result = impl_->remote->call(methods::HEALTH_CHECK, request_msg, 5000);
+        // Call via transport
+        auto response_data = impl_->transport->call(methods::HEALTH_CHECK, request_data);
 
-        if (call_result.is_err()) {
-            impl_->connected = false;
-            return Result<bool>::failure("Health check failed: " + std::string(call_result.error().message));
+        if (response_data.empty()) {
+            return Result<bool>::failure("Health check failed: " + impl_->transport->last_error());
         }
 
         // Deserialize response
-        auto &response_msg = call_result.value();
-        std::vector<uint8_t> response_data(response_msg.begin(), response_msg.end());
-
         wire::HealthCheckResponse resp;
         if (!wire::Serializer::deserialize(response_data, resp)) {
             return Result<bool>::failure("Failed to deserialize health check response");

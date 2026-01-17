@@ -20,17 +20,6 @@ namespace keylock::verify {
         constexpr uint32_t HEALTH_CHECK = 3;
     } // namespace methods
 
-    // Server configuration
-    struct ServerConfig {
-        std::string host{"0.0.0.0"};
-        uint16_t port{50051};
-        int max_threads{4};                       // Number of worker threads
-        std::chrono::seconds shutdown_timeout{5}; // Graceful shutdown timeout
-        int recv_timeout_ms{5000};                // Receive timeout in milliseconds
-
-        ServerConfig() = default;
-    };
-
     // Verification handler interface - implement this to provide verification logic
     class VerificationHandler {
       public:
@@ -91,48 +80,26 @@ namespace keylock::verify {
         mutable std::mutex mutex_;
     };
 
-    // Netpipe-based Verification Server
-    class Server {
+    // Request processor - handles wire format requests and dispatches to handler
+    // This can be used to build custom server implementations
+    class RequestProcessor {
       public:
-        // Constructor with handler and config
-        explicit Server(std::shared_ptr<VerificationHandler> handler, const ServerConfig &config = ServerConfig{});
+        explicit RequestProcessor(std::shared_ptr<VerificationHandler> handler);
+        ~RequestProcessor();
 
-        ~Server();
-
-        // Disable copy
-        Server(const Server &) = delete;
-        Server &operator=(const Server &) = delete;
-
-        // Enable move
-        Server(Server &&) noexcept;
-        Server &operator=(Server &&) noexcept;
-
-        // Start the server (blocks until Stop() is called)
-        void start();
-
-        // Start the server in a background thread (non-blocking)
-        void start_async();
-
-        // Stop the server gracefully
-        void stop();
-
-        // Wait for the server to finish (if started with start_async)
-        void wait();
-
-        // Check if server is running
-        bool is_running() const;
-
-        // Get the server address
-        std::string address() const;
+        // Process a raw request and return a raw response
+        // method_id: The RPC method ID (CHECK_CERTIFICATE, CHECK_BATCH, HEALTH_CHECK)
+        // request_data: Serialized wire format request
+        // Returns: Serialized wire format response
+        std::vector<uint8_t> process(uint32_t method_id, const std::vector<uint8_t> &request_data);
 
         // Set the signing key for response signatures (Ed25519)
-        // If not set, responses will not be signed
         void set_signing_key(const std::vector<uint8_t> &ed25519_private_key);
 
         // Set the responder certificate (included in responses if requested)
         void set_responder_certificate(const cert::Certificate &cert);
 
-        // Server statistics
+        // Statistics
         struct Stats {
             uint64_t total_requests{0};
             uint64_t total_batch_requests{0};
@@ -145,9 +112,8 @@ namespace keylock::verify {
 
         Stats get_stats() const;
 
-        class Impl; // Public for implementation details
-
       private:
+        class Impl;
         std::unique_ptr<Impl> impl_;
     };
 

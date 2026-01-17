@@ -14,7 +14,7 @@ keylock wraps the battle-tested **libsodium** cryptography library in a clean, m
 
 Beyond cryptographic primitives, keylock includes a complete X.509 certificate toolkit built entirely in pure C++. The library implements its own ASN.1 DER parser and encoder without any external dependencies like OpenSSL or Boost. This enables full certificate parsing, generation, validation, and chain verification using modern Ed25519 signatures throughout.
 
-The design philosophy prioritizes safety and simplicity. All fallible operations return result types instead of throwing exceptions. Builder patterns provide fluent APIs for constructing certificates, CSRs, and CRLs. An optional verification protocol offers a lightweight OCSP alternative using netpipe transport, adding zero overhead when disabled.
+The design philosophy prioritizes safety and simplicity. All fallible operations return result types instead of throwing exceptions. Builder patterns provide fluent APIs for constructing certificates, CSRs, and CRLs. An optional verification protocol offers a lightweight OCSP alternative with a transport-agnostic design, adding zero overhead when disabled.
 
 ### Architecture
 
@@ -48,7 +48,7 @@ CRYPTO ─────► Symmetric/asymmetric encryption, signatures, key gener
 CERT ───────► X.509 parsing, building, validation, trust stores, CSR/CRL
 HASH ───────► Cryptographic hashing (SHA-256, SHA-512, BLAKE2b) and HMAC
 IO ─────────► Binary file I/O, X25519 sealed envelope operations
-VERIFY ─────► Optional netpipe-based certificate verification protocol
+VERIFY ─────► Optional transport-agnostic certificate verification protocol
 ```
 
 ## Installation
@@ -255,17 +255,17 @@ int main() {
   keylock::io::write_envelope_to_file(envelope.data, "encrypted.bin");
   ```
 
-- **Verification Protocol** - Lightweight netpipe-based OCSP alternative with Ed25519-signed responses and replay protection.
+- **Verification Protocol** - Lightweight transport-agnostic OCSP alternative with Ed25519-signed responses and replay protection.
   ```cpp
-  // Client
-  keylock::verify::Client client("localhost:50051");
-  auto result = client.verify_chain(certificate_chain);
+  // Simple in-process verification using Verifier
+  keylock::verify::Verifier verifier;
+  verifier.as_revocation_handler()->add_revoked_certificate(serial, "Key compromise");
+  auto result = verifier.verify_chain(certificate_chain);
 
-  // Server with custom handler
-  auto handler = std::make_shared<keylock::verify::SimpleRevocationHandler>();
-  handler->add_revoked_certificate(serial, "Key compromise");
-  keylock::verify::Server server(handler, config);
-  server.start_async();
+  // Or use custom transport for remote verification
+  auto transport = std::make_shared<MyCustomTransport>();
+  keylock::verify::Client client(transport);
+  auto result = client.verify_chain(certificate_chain);
   ```
 
 - **Type-Safe Error Handling** - All operations return result types with `{success, data, error}` instead of throwing exceptions. Enables clean error handling without try-catch overhead.
@@ -374,7 +374,7 @@ Working examples in [`examples/`](./examples/):
 | **Certificates** | `cert_generate_self_signed.cpp`, `cert_generate_ca.cpp`, `cert_parse_and_print.cpp`, `cert_sign_csr.cpp`, `cert_verify_chain.cpp`, `csr_generate.cpp` |
 | **Trust Store** | `trust_store_usage.cpp` |
 | **Enterprise PKI** | `enterprise.cpp` (policy constraints, name constraints) |
-| **Verification** | `simple_verify_server.cpp`, `simple_verify_client.cpp`, `verify_netpipe.cpp` |
+| **Verification** | `simple_verify_server.cpp`, `simple_verify_client.cpp`, `verify_netpipe.cpp` (local verification demo) |
 
 ## License
 
@@ -386,6 +386,5 @@ Made possible thanks to [these amazing projects](./ACKNOWLEDGMENTS.md).
 
 **Core Dependencies:**
 - [libsodium](https://github.com/jedisct1/libsodium) - Modern, portable cryptography library
-- [netpipe](https://github.com/robolibs/netpipe) - Lightweight network protocol transport
 - [datapod](https://github.com/robolibs/datapod) - POD-compatible containers for robotics
 - [doctest](https://github.com/doctest/doctest) - Fast C++ testing framework

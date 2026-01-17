@@ -1,146 +1,188 @@
 /**
- * Simple Verification Server Example
+ * Request Processor Example
  *
- * This example demonstrates how to create a simple netpipe verification server
- * using the keylock::verify::Server API. The server maintains an in-memory
- * revocation list and responds to certificate verification requests.
+ * This example demonstrates how to use the keylock::verify::RequestProcessor
+ * to handle verification requests. The RequestProcessor can be used to build
+ * custom transport layers (e.g., over Unix sockets, shared memory, message queues).
+ *
+ * For simple in-process verification, use keylock::verify::Verifier instead.
  *
  * Build with: cmake -Dkeylock_BUILD_EXAMPLES=ON
- * Run: ./simple_verify_server [port]
+ * Run: ./simple_verify_server
  */
 
-#include <csignal>
 #include <iostream>
 #include <keylock/cert/builder.hpp>
 #include <keylock/keylock.hpp>
 #include <keylock/verify/server.hpp>
-#include <thread>
 
-// Global server instance for signal handling
-keylock::verify::Server *g_server = nullptr;
-
-void signal_handler(int signal) {
-    if (signal == SIGINT || signal == SIGTERM) {
-        std::cout << "\nShutting down server...\n";
-        if (g_server) {
-            g_server->stop();
-        }
-    }
-}
-
-int main(int argc, char *argv[]) {
-    std::cout << "keylock Simple Verification Server\n";
-    std::cout << "==================================\n\n";
-
-    // Parse command line arguments
-    std::string port = (argc >= 2) ? argv[1] : "50051";
-    std::string address = "0.0.0.0:" + port;
+int main() {
+    std::cout << "keylock Request Processor Example\n";
+    std::cout << "=================================\n\n";
 
     // Create a simple revocation handler
     auto handler = std::make_shared<keylock::verify::SimpleRevocationHandler>();
 
-    // Example: Add some revoked certificates for demonstration
-    // In a real application, you would load these from a database or CRL
+    // Add some revoked certificates for demonstration
     std::cout << "Initializing revocation list...\n";
-
-    // Example revoked certificate serial numbers
     handler->add_revoked_certificate({0x01, 0x02, 0x03, 0x04, 0x05}, "Key compromise",
                                      std::chrono::system_clock::now() - std::chrono::hours(48));
-
     handler->add_revoked_certificate({0xDE, 0xAD, 0xBE, 0xEF}, "Certificate hold",
                                      std::chrono::system_clock::now() - std::chrono::hours(24));
-
     std::cout << "Added 2 revoked certificates to the list\n\n";
 
-    // Configure server
-    keylock::verify::ServerConfig config;
-    config.host = "0.0.0.0";
-    config.port = static_cast<uint16_t>(std::stoi(port));
-    config.max_threads = 4;
-
-    std::cout << "Creating server...\n";
-    keylock::verify::Server server(handler, config);
-    g_server = &server;
+    // Create request processor
+    std::cout << "Creating request processor...\n";
+    keylock::verify::RequestProcessor processor(handler);
 
     // Optional: Generate and set signing key for response signatures
     std::cout << "Generating Ed25519 signing key...\n";
     std::vector<uint8_t> pk(crypto_sign_PUBLICKEYBYTES);
     std::vector<uint8_t> sk(crypto_sign_SECRETKEYBYTES);
     crypto_sign_keypair(pk.data(), sk.data());
-    server.set_signing_key(sk);
+    processor.set_signing_key(sk);
 
-    // Optional: Create and set responder certificate
-    std::cout << "Creating responder certificate...\n";
+    // Create a test certificate
+    std::cout << "\nCreating test certificate...\n";
     keylock::crypto::Context ctx(keylock::crypto::Context::Algorithm::Ed25519);
     auto keys = ctx.generate_keypair();
 
     auto dn_result =
-        keylock::cert::DistinguishedName::from_string("CN=keylock Verification Server,O=Example Organization");
-    if (dn_result.success) {
-        auto not_before = std::chrono::system_clock::now();
-        auto not_after = not_before + std::chrono::hours(24 * 365); // 1 year
-
-        keylock::cert::CertificateBuilder builder;
-        builder.set_version(3)  // v3 required for extensions
-            .set_serial(1)
-            .set_subject(dn_result.value)
-            .set_issuer(dn_result.value)
-            .set_validity(not_before, not_after)
-            .set_subject_public_key_ed25519(keys.public_key)
-            .set_basic_constraints(true, std::nullopt, true);
-
-        auto cert_result = builder.build_ed25519(keys, true);
-        if (cert_result.success) {
-            server.set_responder_certificate(cert_result.value);
-            std::cout << "Responder certificate created\n";
-        }
-    }
-
-    // Setup signal handlers for graceful shutdown
-    std::signal(SIGINT, signal_handler);
-    std::signal(SIGTERM, signal_handler);
-
-    std::cout << "\nServer Configuration:\n";
-    std::cout << "  Address: " << config.host << ":" << config.port << "\n";
-    std::cout << "  Threads: " << config.max_threads << "\n";
-    std::cout << "  Response Signing: enabled\n";
-    std::cout << "\nStarting server...\n";
-    std::cout << "Press Ctrl+C to stop\n\n";
-
-    try {
-        // Start server (blocks until stopped)
-        server.start_async();
-
-        std::cout << "Server started successfully!\n";
-        std::cout << "Listening for verification requests...\n\n";
-
-        // Print stats periodically
-        while (server.is_running()) {
-            std::this_thread::sleep_for(std::chrono::seconds(10));
-
-            auto stats = server.get_stats();
-            std::cout << "\n=== Server Statistics ===\n";
-            std::cout << "Total requests: " << stats.total_requests << "\n";
-            std::cout << "Batch requests: " << stats.total_batch_requests << "\n";
-            std::cout << "Health checks: " << stats.total_health_checks << "\n";
-            std::cout << "GOOD responses: " << stats.good_responses << "\n";
-            std::cout << "REVOKED responses: " << stats.revoked_responses << "\n";
-            std::cout << "UNKNOWN responses: " << stats.unknown_responses << "\n";
-
-            auto uptime = std::chrono::system_clock::now() - stats.start_time;
-            auto uptime_seconds = std::chrono::duration_cast<std::chrono::seconds>(uptime).count();
-            std::cout << "Uptime: " << uptime_seconds << " seconds\n";
-            std::cout << "========================\n\n";
-        }
-
-        server.wait();
-        std::cout << "Server stopped.\n";
-
-    } catch (const std::exception &e) {
-        std::cerr << "Error: " << e.what() << "\n";
+        keylock::cert::DistinguishedName::from_string("CN=Test Certificate,O=Example Organization");
+    if (!dn_result.success) {
+        std::cerr << "Failed to create DN: " << dn_result.error << "\n";
         return 1;
     }
 
-    g_server = nullptr;
+    auto not_before = std::chrono::system_clock::now();
+    auto not_after = not_before + std::chrono::hours(24 * 365);
+
+    keylock::cert::CertificateBuilder builder;
+    builder.set_version(3)
+        .set_serial(99999) // Not in revocation list
+        .set_subject(dn_result.value)
+        .set_issuer(dn_result.value)
+        .set_validity(not_before, not_after)
+        .set_subject_public_key_ed25519(keys.public_key)
+        .set_basic_constraints(false, std::nullopt, true);
+
+    auto cert_result = builder.build_ed25519(keys, true);
+    if (!cert_result.success) {
+        std::cerr << "Failed to create certificate: " << cert_result.error << "\n";
+        return 1;
+    }
+
+    auto test_cert = cert_result.value;
+    std::cout << "Certificate created with serial: 99999\n\n";
+
+    // Build a wire format request manually
+    std::cout << "=== Testing Request Processor ===\n\n";
+
+    // 1. Test health check
+    std::cout << "1. Testing health check...\n";
+    keylock::verify::wire::HealthCheckRequest health_req;
+    auto health_req_data = keylock::verify::wire::Serializer::serialize(health_req);
+    auto health_resp_data = processor.process(keylock::verify::methods::HEALTH_CHECK, health_req_data);
+
+    keylock::verify::wire::HealthCheckResponse health_resp;
+    if (keylock::verify::wire::Serializer::deserialize(health_resp_data, health_resp)) {
+        std::cout << "   Health status: "
+                  << (health_resp.status == keylock::verify::wire::HealthCheckResponse::ServingStatus::SERVING
+                          ? "SERVING"
+                          : "NOT_SERVING")
+                  << "\n\n";
+    }
+
+    // 2. Test certificate verification (valid cert)
+    std::cout << "2. Testing valid certificate verification...\n";
+    keylock::verify::wire::VerifyRequest verify_req;
+    keylock::verify::wire::CertificateData cert_data;
+    cert_data.der_bytes = test_cert.to_der();
+    verify_req.certificate_chain.push_back(std::move(cert_data));
+    verify_req.validation_timestamp = std::chrono::system_clock::now();
+    verify_req.flags = keylock::verify::wire::RequestFlags::NONE;
+    verify_req.nonce.resize(32);
+    randombytes_buf(verify_req.nonce.data(), verify_req.nonce.size());
+
+    auto verify_req_data = keylock::verify::wire::Serializer::serialize(verify_req);
+    auto verify_resp_data = processor.process(keylock::verify::methods::CHECK_CERTIFICATE, verify_req_data);
+
+    keylock::verify::wire::VerifyResponse verify_resp;
+    if (keylock::verify::wire::Serializer::deserialize(verify_resp_data, verify_resp)) {
+        std::cout << "   Status: ";
+        switch (verify_resp.status) {
+        case keylock::verify::wire::VerifyStatus::GOOD:
+            std::cout << "GOOD\n";
+            break;
+        case keylock::verify::wire::VerifyStatus::REVOKED:
+            std::cout << "REVOKED\n";
+            break;
+        case keylock::verify::wire::VerifyStatus::UNKNOWN:
+            std::cout << "UNKNOWN\n";
+            break;
+        }
+        std::cout << "   Reason: " << verify_resp.reason << "\n";
+        std::cout << "   Signature present: " << (verify_resp.signature.size() == 64 ? "Yes" : "No") << "\n\n";
+    }
+
+    // 3. Test certificate verification (revoked cert)
+    std::cout << "3. Testing revoked certificate verification...\n";
+    keylock::cert::CertificateBuilder revoked_builder;
+    revoked_builder.set_version(3)
+        .set_serial({0x01, 0x02, 0x03, 0x04, 0x05}) // This serial is revoked
+        .set_subject(dn_result.value)
+        .set_issuer(dn_result.value)
+        .set_validity(not_before, not_after)
+        .set_subject_public_key_ed25519(keys.public_key)
+        .set_basic_constraints(false, std::nullopt, true);
+
+    auto revoked_cert_result = revoked_builder.build_ed25519(keys, true);
+    if (!revoked_cert_result.success) {
+        std::cerr << "Failed to create revoked certificate\n";
+        return 1;
+    }
+
+    keylock::verify::wire::VerifyRequest revoked_verify_req;
+    keylock::verify::wire::CertificateData revoked_cert_data;
+    revoked_cert_data.der_bytes = revoked_cert_result.value.to_der();
+    revoked_verify_req.certificate_chain.push_back(std::move(revoked_cert_data));
+    revoked_verify_req.validation_timestamp = std::chrono::system_clock::now();
+    revoked_verify_req.flags = keylock::verify::wire::RequestFlags::NONE;
+    revoked_verify_req.nonce.resize(32);
+    randombytes_buf(revoked_verify_req.nonce.data(), revoked_verify_req.nonce.size());
+
+    auto revoked_verify_req_data = keylock::verify::wire::Serializer::serialize(revoked_verify_req);
+    auto revoked_verify_resp_data =
+        processor.process(keylock::verify::methods::CHECK_CERTIFICATE, revoked_verify_req_data);
+
+    keylock::verify::wire::VerifyResponse revoked_verify_resp;
+    if (keylock::verify::wire::Serializer::deserialize(revoked_verify_resp_data, revoked_verify_resp)) {
+        std::cout << "   Status: ";
+        switch (revoked_verify_resp.status) {
+        case keylock::verify::wire::VerifyStatus::GOOD:
+            std::cout << "GOOD\n";
+            break;
+        case keylock::verify::wire::VerifyStatus::REVOKED:
+            std::cout << "REVOKED\n";
+            break;
+        case keylock::verify::wire::VerifyStatus::UNKNOWN:
+            std::cout << "UNKNOWN\n";
+            break;
+        }
+        std::cout << "   Reason: " << revoked_verify_resp.reason << "\n\n";
+    }
+
+    // Print statistics
+    auto stats = processor.get_stats();
+    std::cout << "=== Processor Statistics ===\n";
+    std::cout << "Total requests: " << stats.total_requests << "\n";
+    std::cout << "Health checks: " << stats.total_health_checks << "\n";
+    std::cout << "GOOD responses: " << stats.good_responses << "\n";
+    std::cout << "REVOKED responses: " << stats.revoked_responses << "\n";
+
+    std::cout << "\nDemo completed successfully!\n";
+    std::cout << "\nNote: To implement a custom transport layer, use RequestProcessor::process()\n";
+    std::cout << "with your own transport mechanism (sockets, shared memory, etc.)\n";
+
     return 0;
 }

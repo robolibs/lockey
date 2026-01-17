@@ -1,12 +1,7 @@
 #include <keylock/verify/server.hpp>
 
-#include <netpipe/remote/remote.hpp>
-#include <netpipe/stream/tcp.hpp>
-
 #include <atomic>
-#include <iostream>
 #include <sodium.h>
-#include <thread>
 
 namespace keylock::verify {
 
@@ -70,39 +65,29 @@ namespace keylock::verify {
         return response;
     }
 
-    // Server implementation
-    class Server::Impl {
+    // RequestProcessor implementation
+    class RequestProcessor::Impl {
       public:
         std::shared_ptr<VerificationHandler> handler;
-        ServerConfig config;
-        netpipe::TcpStream listener;
-        std::atomic<bool> running{false};
-        std::atomic<bool> should_stop{false};
 
         std::vector<uint8_t> signing_key;
         std::optional<cert::Certificate> responder_cert;
 
-        Server::Stats stats;
+        RequestProcessor::Stats stats;
         mutable std::mutex stats_mutex;
 
-        std::thread server_thread;
-
-        explicit Impl(std::shared_ptr<VerificationHandler> h, const ServerConfig &cfg)
-            : handler(std::move(h)), config(cfg) {
+        explicit Impl(std::shared_ptr<VerificationHandler> h) : handler(std::move(h)) {
             stats.start_time = std::chrono::system_clock::now();
         }
 
         void sign_response(wire::VerifyResponse &response);
 
-        dp::Res<netpipe::Message> handle_verify_request(const netpipe::Message &request_data);
-        dp::Res<netpipe::Message> handle_batch_request(const netpipe::Message &request_data);
-        dp::Res<netpipe::Message> handle_health_check(const netpipe::Message &request_data);
-
-        void serve_client(std::unique_ptr<netpipe::Stream> client_stream);
-        void run_server();
+        std::vector<uint8_t> handle_verify_request(const std::vector<uint8_t> &request_data);
+        std::vector<uint8_t> handle_batch_request(const std::vector<uint8_t> &request_data);
+        std::vector<uint8_t> handle_health_check(const std::vector<uint8_t> &request_data);
     };
 
-    void Server::Impl::sign_response(wire::VerifyResponse &response) {
+    void RequestProcessor::Impl::sign_response(wire::VerifyResponse &response) {
         if (signing_key.size() != crypto_sign_SECRETKEYBYTES) {
             return;
         }
@@ -131,16 +116,14 @@ namespace keylock::verify {
         crypto_sign_detached(response.signature.data(), nullptr, message.data(), message.size(), signing_key.data());
     }
 
-    dp::Res<netpipe::Message> Server::Impl::handle_verify_request(const netpipe::Message &request_data) {
+    std::vector<uint8_t> RequestProcessor::Impl::handle_verify_request(const std::vector<uint8_t> &request_data) {
         wire::VerifyRequest wire_req;
-        std::vector<uint8_t> data(request_data.begin(), request_data.end());
 
-        if (!wire::Serializer::deserialize(data, wire_req)) {
+        if (!wire::Serializer::deserialize(request_data, wire_req)) {
             wire::VerifyResponse error_resp;
             error_resp.status = wire::VerifyStatus::UNKNOWN;
             error_resp.reason = "Failed to deserialize request";
-            auto resp_data = wire::Serializer::serialize(error_resp);
-            return dp::result::ok(netpipe::Message(resp_data.begin(), resp_data.end()));
+            return wire::Serializer::serialize(error_resp);
         }
 
         std::vector<cert::Certificate> chain;
@@ -151,8 +134,7 @@ namespace keylock::verify {
                 error_resp.status = wire::VerifyStatus::UNKNOWN;
                 error_resp.reason = "Failed to parse certificate: " + parse_result.error;
                 error_resp.nonce = wire_req.nonce;
-                auto resp_data = wire::Serializer::serialize(error_resp);
-                return dp::result::ok(netpipe::Message(resp_data.begin(), resp_data.end()));
+                return wire::Serializer::serialize(error_resp);
             }
             chain.push_back(std::move(parse_result.value));
         }
@@ -184,18 +166,15 @@ namespace keylock::verify {
             }
         }
 
-        auto resp_data = wire::Serializer::serialize(response);
-        return dp::result::ok(netpipe::Message(resp_data.begin(), resp_data.end()));
+        return wire::Serializer::serialize(response);
     }
 
-    dp::Res<netpipe::Message> Server::Impl::handle_batch_request(const netpipe::Message &request_data) {
+    std::vector<uint8_t> RequestProcessor::Impl::handle_batch_request(const std::vector<uint8_t> &request_data) {
         wire::BatchVerifyRequest batch_req;
-        std::vector<uint8_t> data(request_data.begin(), request_data.end());
 
-        if (!wire::Serializer::deserialize(data, batch_req)) {
+        if (!wire::Serializer::deserialize(request_data, batch_req)) {
             wire::BatchVerifyResponse error_resp;
-            auto resp_data = wire::Serializer::serialize(error_resp);
-            return dp::result::ok(netpipe::Message(resp_data.begin(), resp_data.end()));
+            return wire::Serializer::serialize(error_resp);
         }
 
         std::vector<std::vector<cert::Certificate>> chains;
@@ -237,11 +216,10 @@ namespace keylock::verify {
 
         wire::BatchVerifyResponse batch_resp;
         batch_resp.responses = std::move(responses);
-        auto resp_data = wire::Serializer::serialize(batch_resp);
-        return dp::result::ok(netpipe::Message(resp_data.begin(), resp_data.end()));
+        return wire::Serializer::serialize(batch_resp);
     }
 
-    dp::Res<netpipe::Message> Server::Impl::handle_health_check(const netpipe::Message &request_data) {
+    std::vector<uint8_t> RequestProcessor::Impl::handle_health_check(const std::vector<uint8_t> &request_data) {
         wire::HealthCheckResponse health_resp;
         health_resp.status = handler->is_healthy() ? wire::HealthCheckResponse::ServingStatus::SERVING
                                                    : wire::HealthCheckResponse::ServingStatus::NOT_SERVING;
@@ -251,120 +229,39 @@ namespace keylock::verify {
             stats.total_health_checks++;
         }
 
-        auto resp_data = wire::Serializer::serialize(health_resp);
-        return dp::result::ok(netpipe::Message(resp_data.begin(), resp_data.end()));
+        return wire::Serializer::serialize(health_resp);
     }
 
-    void Server::Impl::serve_client(std::unique_ptr<netpipe::Stream> client_stream) {
-        netpipe::remote::Remote<netpipe::remote::Unidirect> remote(*client_stream);
+    // RequestProcessor public interface
+    RequestProcessor::RequestProcessor(std::shared_ptr<VerificationHandler> handler)
+        : impl_(std::make_unique<Impl>(std::move(handler))) {}
 
-        remote.register_method(methods::CHECK_CERTIFICATE,
-                               [this](const netpipe::Message &req) { return handle_verify_request(req); });
+    RequestProcessor::~RequestProcessor() = default;
 
-        remote.register_method(methods::CHECK_BATCH,
-                               [this](const netpipe::Message &req) { return handle_batch_request(req); });
-
-        remote.register_method(methods::HEALTH_CHECK,
-                               [this](const netpipe::Message &req) { return handle_health_check(req); });
-
-        // Serve requests until connection closes or server stops
-        remote.serve();
-    }
-
-    void Server::Impl::run_server() {
-        netpipe::TcpEndpoint endpoint{dp::String(config.host.c_str()), config.port};
-        auto listen_result = listener.listen(endpoint);
-
-        if (listen_result.is_err()) {
-            std::cerr << "Failed to start server on " << config.host << ":" << config.port << std::endl;
-            return;
-        }
-
-        running = true;
-        std::cout << "keylock Verification Server listening on " << config.host << ":" << config.port << std::endl;
-
-        listener.set_recv_timeout(config.recv_timeout_ms);
-
-        while (!should_stop) {
-            auto accept_result = listener.accept();
-            if (accept_result.is_err()) {
-                // Timeout or error - check if we should stop
-                continue;
-            }
-
-            auto client_stream = std::move(accept_result.value());
-
-            // Handle client in a new thread
-            std::thread([this, stream = std::move(client_stream)]() mutable {
-                serve_client(std::move(stream));
-            }).detach();
-        }
-
-        running = false;
-    }
-
-    // Server public interface
-    Server::Server(std::shared_ptr<VerificationHandler> handler, const ServerConfig &config)
-        : impl_(std::make_unique<Impl>(std::move(handler), config)) {}
-
-    Server::~Server() {
-        if (impl_ && impl_->running) {
-            stop();
+    std::vector<uint8_t> RequestProcessor::process(uint32_t method_id, const std::vector<uint8_t> &request_data) {
+        switch (method_id) {
+        case methods::CHECK_CERTIFICATE:
+            return impl_->handle_verify_request(request_data);
+        case methods::CHECK_BATCH:
+            return impl_->handle_batch_request(request_data);
+        case methods::HEALTH_CHECK:
+            return impl_->handle_health_check(request_data);
+        default:
+            // Unknown method - return empty response
+            return {};
         }
     }
 
-    Server::Server(Server &&) noexcept = default;
-    Server &Server::operator=(Server &&) noexcept = default;
-
-    void Server::start() {
-        if (impl_->running) {
-            return;
-        }
-        impl_->run_server();
-    }
-
-    void Server::start_async() {
-        if (impl_->running) {
-            return;
-        }
-
-        impl_->server_thread = std::thread([this]() { this->start(); });
-        std::this_thread::sleep_for(std::chrono::milliseconds(200));
-    }
-
-    void Server::stop() {
-        if (!impl_->running) {
-            return;
-        }
-
-        impl_->should_stop = true;
-        impl_->listener.close();
-
-        if (impl_->server_thread.joinable()) {
-            impl_->server_thread.join();
-        }
-    }
-
-    void Server::wait() {
-        if (impl_->server_thread.joinable()) {
-            impl_->server_thread.join();
-        }
-    }
-
-    bool Server::is_running() const { return impl_->running; }
-
-    std::string Server::address() const { return impl_->config.host + ":" + std::to_string(impl_->config.port); }
-
-    void Server::set_signing_key(const std::vector<uint8_t> &ed25519_private_key) {
+    void RequestProcessor::set_signing_key(const std::vector<uint8_t> &ed25519_private_key) {
         if (ed25519_private_key.size() != crypto_sign_SECRETKEYBYTES) {
             throw std::invalid_argument("Invalid Ed25519 private key size");
         }
         impl_->signing_key = ed25519_private_key;
     }
 
-    void Server::set_responder_certificate(const cert::Certificate &cert) { impl_->responder_cert = cert; }
+    void RequestProcessor::set_responder_certificate(const cert::Certificate &cert) { impl_->responder_cert = cert; }
 
-    Server::Stats Server::get_stats() const {
+    RequestProcessor::Stats RequestProcessor::get_stats() const {
         std::lock_guard<std::mutex> lock(impl_->stats_mutex);
         return impl_->stats;
     }

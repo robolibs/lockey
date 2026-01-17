@@ -13,7 +13,6 @@ set(PROJECT_VERSION "0.0.6")
 set(LIB_DEPS
     "echo|https://github.com/bresilla/echo.git|0.0.23"
     "datapod|https://github.com/robolibs/datapod.git|0.0.34"
-    "netpipe|https://github.com/robolibs/netpipe.git|0.0.7"
     "pkg::libsodium"
 )
 set(EXAMPLE_DEPS

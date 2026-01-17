@@ -2,14 +2,14 @@
 
 ## Overview
 
-The keylock Verification Protocol (LVP) is a modern certificate revocation checking system built on netpipe with a custom binary wire format. It provides an efficient, secure alternative to OCSP for Ed25519 certificates.
+The keylock Verification Protocol (LVP) is a modern certificate revocation checking system with a custom binary wire format. It provides an efficient, secure alternative to OCSP for Ed25519 certificates. The protocol is transport-agnostic—it can work in-process, over TCP, Unix sockets, shared memory, or any custom transport layer.
 
 ## Design Goals
 
-- **Modern**: Built on netpipe for lightweight TCP networking
+- **Transport-Agnostic**: Works in-process or over any transport mechanism
 - **Efficient**: Custom binary protocol optimized for Ed25519 certificates
 - **Secure**: Ed25519 signatures, nonce-based replay protection
-- **Minimal**: No external dependencies beyond netpipe/datapod
+- **Minimal**: No networking dependencies in the core library
 
 ## Architecture
 
@@ -18,12 +18,12 @@ The keylock Verification Protocol (LVP) is a modern certificate revocation check
 │                      LVP Protocol Flow                            │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                  │
-│   ┌─────────────┐                 ┌─────────────┐               │
-│   │   Client    │                 │   Server    │               │
-│   │  (keylock)  │   netpipe/TCP   │  (keylock)  │               │
-│   │             │◄───────────────►│             │               │
-│   │ Wire Format │  Binary Protocol │ Wire Format│               │
-│   └─────────────┘                 └─────────────┘               │
+│   ┌─────────────┐                 ┌──────────────────┐          │
+│   │   Client    │                 │ RequestProcessor │          │
+│   │  (keylock)  │   Transport     │    (keylock)     │          │
+│   │             │◄───────────────►│                  │          │
+│   │ Wire Format │  Binary Protocol │   Wire Format   │          │
+│   └─────────────┘                 └──────────────────┘          │
 │         │                                │                      │
 │         │ 1. Verify Request             │                      │
 │         │   (Chain + Nonce)              │                      │
@@ -52,8 +52,15 @@ The keylock Verification Protocol (LVP) is a modern certificate revocation check
                          │
                          ▼
 ┌─────────────────────────────────────────────────────────────┐
-│                  LVP Server API                              │
-│  - Request handling (netpipe)                                │
+│                   Transport Interface                        │
+│  - DirectTransport (in-process, no networking)              │
+│  - Custom transports (TCP, Unix sockets, shared memory)    │
+└─────────────────────────────────────────────────────────────┘
+                         │
+                         ▼
+┌─────────────────────────────────────────────────────────────┐
+│                  RequestProcessor API                        │
+│  - Wire format request handling                             │
 │  - Revocation checking                                      │
 │  - Response signing (Ed25519)                                │
 │  - Health monitoring                                         │
@@ -225,19 +232,19 @@ enum class ServingStatus : uint8_t {
 };
 ```
 
-## Netpipe RPC Methods
+## Method IDs
 
-The protocol uses netpipe's Remote RPC with method IDs:
+The protocol uses method IDs to identify request types:
 
 ```cpp
-namespace methods {
+namespace keylock::verify::methods {
     constexpr uint32_t CHECK_CERTIFICATE = 1;  // Single certificate verification
     constexpr uint32_t CHECK_BATCH = 2;        // Batch verification
     constexpr uint32_t HEALTH_CHECK = 3;       // Health check
 }
 ```
 
-Each method receives the wire-format message as payload and returns a wire-format response.
+Each method receives the wire-format message as payload and returns a wire-format response. The `Transport` interface abstracts the actual communication mechanism.
 
 ## Security Considerations
 
@@ -283,20 +290,20 @@ nonce (32 bytes)
 
 **Verification:**
 ```cpp
-#include <keylock/verify/client.hpp>
+#include <keylock/verify/direct_transport.hpp>
 
-// Create client and set responder certificate
-keylock::verify::Client client("192.168.1.100:50051", config);
+// Simple in-process verification using Verifier
+keylock::verify::Verifier verifier;
 
 // Load and set responder certificate for signature verification
 auto responder_cert = keylock::cert::load_from_file("responder.pem");
-client.set_responder_cert(responder_cert.value);
+verifier.set_responder_certificate(responder_cert.value);
 
 // Verify certificate chain
-auto result = client.verify_chain(cert_chain);
+auto result = verifier.verify_chain(cert_chain);
 // Signature is automatically verified if responder cert is set
 if (!result.success) {
-    // Signature verification failed or network error
+    // Signature verification failed
     std::cerr << "Verification failed: " << result.error << "\n";
 }
 ```
@@ -309,12 +316,13 @@ if (!result.success) {
 
 ### Transport Security
 
-The netpipe transport uses plain TCP by default. For production deployments requiring encryption, consider:
+The LVP protocol is transport-agnostic. For in-process verification using `DirectTransport`, no network security is needed. For remote verification with custom transports, consider:
 
-1. **TLS termination proxy**: Run the LVP server behind nginx, HAProxy, or similar
-2. **VPN or encrypted tunnel**: Use WireGuard, OpenVPN, or SSH tunneling
-3. **Private network**: Deploy on a trusted isolated network segment
-4. **Mutual authentication**: Add application-layer authentication if needed
+1. **In-process**: Use `DirectTransport` or `Verifier` class—no network exposure
+2. **TLS termination proxy**: Run custom transport server behind nginx, HAProxy, or similar
+3. **VPN or encrypted tunnel**: Use WireGuard, OpenVPN, or SSH tunneling
+4. **Private network**: Deploy on a trusted isolated network segment
+5. **Mutual authentication**: Add application-layer authentication if needed
 
 The protocol-level Ed25519 signatures ensure response authenticity regardless of transport encryption, but transport encryption provides additional protection against:
 
@@ -322,11 +330,15 @@ The protocol-level Ed25519 signatures ensure response authenticity regardless of
 - Man-in-the-middle attacks on the protocol itself
 - Traffic analysis (timing and size)
 
-**Recommended setup for production:**
+**Recommended setup for in-process verification:**
 ```
-Internet → TLS Termination (nginx) → LVP Server (localhost)
-                      ↓
-                Client verifies TLS certificate + LVP response signature
+Application → Verifier → RequestProcessor → VerificationHandler
+                 (no network overhead)
+```
+
+**Recommended setup for remote verification:**
+```
+Application → Client → CustomTransport → RequestProcessor → Handler
 ```
 
 ### Server Key Management
@@ -343,12 +355,12 @@ Internet → TLS Termination (nginx) → LVP Server (localhost)
 
 ## Usage Examples
 
-### Basic Verification
+### Basic Verification (In-Process)
 
-Verify a single certificate chain:
+Verify a single certificate chain using the `Verifier` class:
 
 ```cpp
-#include <keylock/verify/client.hpp>
+#include <keylock/verify/direct_transport.hpp>
 #include <keylock/cert/certificate.hpp>
 
 int main() {
@@ -361,23 +373,18 @@ int main() {
         intermediate.value
     };
 
-    // Create client with configuration
-    keylock::verify::ClientConfig config;
-    config.timeout = std::chrono::seconds(10);
-    config.max_retry_attempts = 3;
-    config.connect_timeout = std::chrono::seconds(5);
+    // Create verifier (in-process, no networking)
+    keylock::verify::Verifier verifier;
 
-    keylock::verify::Client client("192.168.1.100:50051", config);
-
-    // Set responder certificate for signature verification
-    auto responder_cert = keylock::cert::load_from_file("responder.pem");
-    client.set_responder_cert(responder_cert.value);
+    // Optional: Add revoked certificates
+    verifier.as_revocation_handler()->add_revoked_certificate(
+        {0x01, 0x02, 0x03}, "Key compromise");
 
     // Verify certificate chain
-    auto result = client.verify_chain(chain);
+    auto result = verifier.verify_chain(chain);
 
     if (!result.success) {
-        std::cerr << "Verification request failed: " << result.error << "\n";
+        std::cerr << "Verification failed: " << result.error << "\n";
         return 1;
     }
 
@@ -386,18 +393,15 @@ int main() {
     switch (response.status) {
         case keylock::verify::wire::VerifyStatus::GOOD:
             std::cout << "Certificate is valid and not revoked\n";
-            std::cout << "Valid from: " << response.this_update << "\n";
-            std::cout << "Valid until: " << response.next_update << "\n";
             break;
 
         case keylock::verify::wire::VerifyStatus::REVOKED:
             std::cout << "Certificate is revoked!\n";
             std::cout << "Reason: " << response.reason << "\n";
-            std::cout << "Revoked at: " << response.revocation_time << "\n";
             break;
 
         case keylock::verify::wire::VerifyStatus::UNKNOWN:
-            std::cout << "Certificate status unknown to server\n";
+            std::cout << "Certificate status unknown\n";
             break;
     }
 
@@ -410,10 +414,10 @@ int main() {
 Verify multiple certificate chains efficiently:
 
 ```cpp
-#include <keylock/verify/client.hpp>
+#include <keylock/verify/direct_transport.hpp>
 
 int main() {
-    keylock::verify::Client client("192.168.1.100:50051");
+    keylock::verify::Verifier verifier;
 
     // Prepare multiple certificate chains
     std::vector<std::vector<keylock::cert::Certificate>> chains;
@@ -427,7 +431,7 @@ int main() {
     chains.push_back(chain2);
 
     // Verify all chains in a single request
-    auto result = client.verify_batch(chains);
+    auto result = verifier.verify_batch(chains);
 
     if (!result.success) {
         std::cerr << "Batch verification failed: " << result.error << "\n";
@@ -458,33 +462,25 @@ int main() {
 
 ### Health Check
 
-Monitor server health:
+Check verification service health:
 
 ```cpp
-#include <keylock/verify/client.hpp>
+#include <keylock/verify/direct_transport.hpp>
 
 int main() {
-    keylock::verify::Client client("192.168.1.100:50051");
+    keylock::verify::Verifier verifier;
 
-    auto health = client.health_check();
+    auto health = verifier.health_check();
 
     if (!health.success) {
         std::cerr << "Health check failed: " << health.error << "\n";
         return 1;
     }
 
-    switch (health.value) {
-        case keylock::verify::wire::ServingStatus::SERVING:
-            std::cout << "Server is healthy and accepting requests\n";
-            break;
-
-        case keylock::verify::wire::ServingStatus::NOT_SERVING:
-            std::cout << "Server is not accepting requests\n";
-            break;
-
-        default:
-            std::cout << "Unknown server status\n";
-            break;
+    if (health.value) {
+        std::cout << "Verification service is healthy\n";
+    } else {
+        std::cout << "Verification service is not healthy\n";
     }
 
     return 0;
@@ -545,9 +541,9 @@ Typical message sizes for Ed25519 certificates:
 | Signing | Ed25519 | RSA/ECDSA |
 | Hashing | SHA-256 | SHA-1 (legacy) |
 | Signature size | 64 bytes | 256-512 bytes (RSA), 64-71 bytes (ECDSA) |
-| Transport | netpipe/TCP | HTTP/1.1 |
+| Transport | Transport-agnostic | HTTP/1.1 |
 | Batch support | Native | Optional extension |
-| Dependencies | netpipe, datapod | OpenSSL |
+| Dependencies | libsodium, datapod | OpenSSL |
 | Message size | ~150 bytes response | ~300-500 bytes response |
 | Latency | ~20-40 ms | ~30-60 ms (includes HTTP overhead) |
 
@@ -558,11 +554,11 @@ Typical message sizes for Ed25519 certificates:
 - Native batch support
 - Lower dependencies
 
-## Server Implementation
+## RequestProcessor Implementation
 
-The verification server is included in the keylock library. Both C++ client and server APIs are provided.
+The verification logic is handled by `RequestProcessor`, which processes wire-format requests and returns wire-format responses. This design allows you to build custom transport layers on top.
 
-### Basic Server Setup
+### Basic RequestProcessor Setup
 
 ```cpp
 #include <keylock/verify/server.hpp>
@@ -585,82 +581,60 @@ int main() {
         std::chrono::system_clock::now()
     );
 
-    // Configure server
-    keylock::verify::ServerConfig config;
-    config.host = "0.0.0.0";
-    config.port = 50051;
-    config.max_threads = 4;
-    config.max_connections = 1000;
-    config.idle_timeout = std::chrono::seconds(300);
+    // Create request processor
+    keylock::verify::RequestProcessor processor(handler);
 
-    // Create and start server
-    keylock::verify::Server server(handler, config);
-
-    // Set Ed25519 signing key
+    // Set Ed25519 signing key for response signatures
     std::vector<uint8_t> sk(crypto_sign_SECRETKEYBYTES);
     std::vector<uint8_t> pk(crypto_sign_PUBLICKEYBYTES);
     crypto_sign_keypair(pk.data(), sk.data());
-    server.set_signing_key(sk);
+    processor.set_signing_key(sk);
 
-    // Optional: Set responder certificate (sent to clients on request)
+    // Optional: Set responder certificate
     auto responder_cert = keylock::cert::load_from_file("responder.pem");
-    server.set_responder_certificate(responder_cert.value);
+    processor.set_responder_certificate(responder_cert.value);
 
-    // Start server (blocking)
-    std::cout << "Starting verification server on " << config.host << ":" << config.port << "\n";
-    server.start();
+    // Process requests (wire format in, wire format out)
+    std::vector<uint8_t> request_data = /* receive from your transport */;
+    auto response_data = processor.process(keylock::verify::methods::CHECK_CERTIFICATE, request_data);
+    // Send response_data via your transport
 
     return 0;
 }
 ```
 
-### Asynchronous Server
+### Using the Verifier Convenience Class
 
-Run server alongside other tasks:
+For simple in-process verification, use the `Verifier` class which combines all components:
 
 ```cpp
-#include <keylock/verify/server.hpp>
-#include <signal.h>
-#include <atomic>
-
-std::atomic<bool> shutdown_flag(false);
-
-void signal_handler(int) {
-    shutdown_flag = true;
-}
+#include <keylock/verify/direct_transport.hpp>
 
 int main() {
-    // Setup signal handler for graceful shutdown
-    signal(SIGINT, signal_handler);
-    signal(SIGTERM, signal_handler);
+    // Create verifier with default SimpleRevocationHandler
+    keylock::verify::Verifier verifier;
 
-    // Create handler and server
-    auto handler = std::make_shared<keylock::verify::SimpleRevocationHandler>();
-    keylock::verify::ServerConfig config;
-    config.host = "0.0.0.0";
-    config.port = 50051;
+    // Add revoked certificates
+    verifier.as_revocation_handler()->add_revoked_certificate(
+        {0x01, 0x02, 0x03, 0x04, 0x05},
+        "Key compromise",
+        std::chrono::system_clock::now()
+    );
 
-    keylock::verify::Server server(handler, config);
+    // Optional: Set signing key for signed responses
+    std::vector<uint8_t> pk(crypto_sign_PUBLICKEYBYTES);
+    std::vector<uint8_t> sk(crypto_sign_SECRETKEYBYTES);
+    crypto_sign_keypair(pk.data(), sk.data());
+    verifier.set_signing_key(sk);
 
-    // Set signing key
-    auto keypair = generate_server_keypair();
-    server.set_signing_key(keypair.private_key);
+    // Verify certificates directly
+    std::vector<keylock::cert::Certificate> chain = load_chain("certs/");
+    auto result = verifier.verify_chain(chain);
 
-    // Start server asynchronously
-    server.start_async();
-    std::cout << "Server started\n";
-
-    // Wait for shutdown signal
-    while (!shutdown_flag) {
-        std::this_thread::sleep_for(std::chrono::seconds(1));
+    if (result.success && result.value.status == keylock::verify::wire::VerifyStatus::GOOD) {
+        std::cout << "Certificate is valid!\n";
     }
 
-    // Graceful shutdown
-    std::cout << "Shutting down server...\n";
-    server.shutdown();
-    server.wait();
-
-    std::cout << "Server stopped\n";
     return 0;
 }
 ```
@@ -694,7 +668,7 @@ public:
         }
 
         // Get serial number from leaf certificate
-        auto serial = chain[0].serial_number();
+        auto serial = chain[0].tbs().serial_number;
 
         try {
             pqxx::work txn(conn_);
@@ -730,74 +704,6 @@ public:
         return response;
     }
 
-    // Optimize batch operations with a single query
-    std::vector<keylock::verify::wire::VerifyResponse> verify_batch(
-        const std::vector<std::vector<keylock::cert::Certificate>>& chains) override {
-
-        std::vector<keylock::verify::wire::VerifyResponse> responses;
-        responses.reserve(chains.size());
-
-        auto now = std::chrono::system_clock::now();
-
-        // Collect all serial numbers
-        std::vector<std::vector<uint8_t>> serials;
-        for (const auto& chain : chains) {
-            if (!chain.empty()) {
-                serials.push_back(chain[0].serial_number());
-            }
-        }
-
-        try {
-            pqxx::work txn(conn_);
-
-            // Batch query (PostgreSQL supports IN clause with arrays)
-            std::string query = "SELECT serial_number, status, reason, revoked_at FROM revoked_certs WHERE serial_number = ANY($1)";
-            pqxx::result r = txn.exec_params(query, serials);
-
-            // Build lookup map
-            std::map<std::vector<uint8_t>, pqxx::row> revocation_map;
-            for (const auto& row : r) {
-                pqxx::binarystring serial(row["serial_number"]);
-                revocation_map[std::vector<uint8_t>(serial.begin(), serial.end())] = row;
-            }
-
-            // Generate responses
-            for (const auto& chain : chains) {
-                keylock::verify::wire::VerifyResponse response;
-                response.this_update = now;
-                response.next_update = now + std::chrono::hours(1);
-
-                if (chain.empty()) {
-                    response.status = keylock::verify::wire::VerifyStatus::UNKNOWN;
-                    response.reason = "Empty certificate chain";
-                } else {
-                    auto serial = chain[0].serial_number();
-                    auto it = revocation_map.find(serial);
-
-                    if (it == revocation_map.end()) {
-                        response.status = keylock::verify::wire::VerifyStatus::GOOD;
-                        response.reason = "Certificate not in revocation list";
-                    } else {
-                        response.status = keylock::verify::wire::VerifyStatus::REVOKED;
-                        response.reason = it->second["reason"].as<std::string>();
-                        std::string revoked_str = it->second["revoked_at"].as<std::string>();
-                        response.revocation_time = parse_timestamp(revoked_str);
-                    }
-                }
-
-                responses.push_back(std::move(response));
-            }
-
-            txn.commit();
-
-        } catch (const std::exception& e) {
-            // Fallback to individual queries on error
-            return VerificationHandler::verify_batch(chains);
-        }
-
-        return responses;
-    }
-
     bool is_healthy() const override {
         try {
             pqxx::work txn(conn_);
@@ -810,7 +716,7 @@ public:
     }
 
 private:
-    pqxx::connection conn_;
+    mutable pqxx::connection conn_;
 
     std::chrono::system_clock::time_point parse_timestamp(const std::string& ts) {
         // Parse timestamp string (implement as needed)
@@ -819,20 +725,26 @@ private:
 };
 
 int main() {
+    // Create custom handler
     auto handler = std::make_shared<DatabaseRevocationHandler>(
         "dbname=revocation user=revoker password=secret"
     );
 
-    keylock::verify::ServerConfig config;
-    config.host = "0.0.0.0";
-    config.port = 50051;
+    // Create verifier with custom handler
+    keylock::verify::Verifier verifier(handler);
 
-    keylock::verify::Server server(handler, config);
+    // Or use RequestProcessor directly for custom transports
+    keylock::verify::RequestProcessor processor(handler);
 
-    auto keypair = generate_server_keypair();
-    server.set_signing_key(keypair.private_key);
+    // Generate and set signing key
+    std::vector<uint8_t> pk(crypto_sign_PUBLICKEYBYTES);
+    std::vector<uint8_t> sk(crypto_sign_SECRETKEYBYTES);
+    crypto_sign_keypair(pk.data(), sk.data());
+    processor.set_signing_key(sk);
 
-    server.start();
+    // Process requests from your custom transport
+    // processor.process(method_id, request_data);
+
     return 0;
 }
 ```
@@ -840,9 +752,8 @@ int main() {
 **Key Handler Features:**
 - **In-memory revocation list** (`SimpleRevocationHandler`) - Fast, ephemeral storage
 - **Custom handler interface** - Connect to any backend (DB, CRL, LDAP, etc.)
-- **Batch optimization** - Override `verify_batch` for efficient bulk queries
-- **Health monitoring** - `is_healthy()` for load balancer checks
-- **Thread safety** - Handlers must be thread-safe if using multiple server threads
+- **Health monitoring** - `is_healthy()` for health checks
+- **Thread safety** - Handlers must be thread-safe if using from multiple threads
 
 ## Protocol Versioning
 
@@ -874,38 +785,21 @@ Potential future additions:
 
 ## Error Handling
 
-### Connection Errors
+### Result Types
 
-Netpipe returns `dp::Res<T>` result types. Common error conditions:
-
-| Error | Cause | Action |
-|-------|-------|--------|
-| Connection refused | Server not running or wrong address | Check server status and address |
-| Timeout | Server not responding within configured timeout | Increase timeout or check server load |
-| Connection reset | Server closed connection unexpectedly | Check server logs for crashes |
-| Network unreachable | Network connectivity issue | Check network configuration |
+All verification operations return result types with `{success, value, error}` fields:
 
 ### Client Error Handling
 
 ```cpp
-#include <keylock/verify/client.hpp>
+#include <keylock/verify/direct_transport.hpp>
 
-keylock::verify::Client client("192.168.1.100:50051");
-auto result = client.verify_chain(chain);
+keylock::verify::Verifier verifier;
+auto result = verifier.verify_chain(chain);
 
 if (!result.success) {
-    // Network error, timeout, or server error
+    // Verification request failed
     std::cerr << "Error: " << result.error << "\n";
-
-    // Handle specific errors
-    if (result.error.find("timeout") != std::string::npos) {
-        // Retry with longer timeout
-        // ...
-    } else if (result.error.find("connection refused") != std::string::npos) {
-        // Server is down
-        // ...
-    }
-
     return 1;
 } else {
     // Check certificate status
@@ -922,16 +816,16 @@ if (!result.success) {
             break;
 
         case keylock::verify::wire::VerifyStatus::UNKNOWN:
-            // Server doesn't know about this certificate
-            // Could be valid or not in server's database
+            // Certificate status unknown
+            // Could be valid or not in revocation database
             break;
     }
 }
 ```
 
-### Server Error Handling
+### Handler Error Handling
 
-The server should handle errors gracefully:
+Custom handlers should handle errors gracefully:
 
 ```cpp
 class MyHandler : public keylock::verify::VerificationHandler {
@@ -948,7 +842,7 @@ public:
             // Return UNKNOWN status on errors
             keylock::verify::wire::VerifyResponse response;
             response.status = keylock::verify::wire::VerifyStatus::UNKNOWN;
-            response.reason = std::string("Server error: ") + e.what();
+            response.reason = std::string("Handler error: ") + e.what();
             response.this_update = std::chrono::system_clock::now();
             response.next_update = response.this_update + std::chrono::minutes(5);
             return response;

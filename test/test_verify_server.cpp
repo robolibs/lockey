@@ -1,6 +1,6 @@
 /**
  * Test: Verification Server
- * Tests the netpipe verification server implementation
+ * Tests the verification server implementation (RequestProcessor and Verifier)
  */
 
 #include <doctest/doctest.h>
@@ -9,8 +9,8 @@
 #include <keylock/cert/builder.hpp>
 #include <keylock/crypto/context.hpp>
 #include <keylock/verify/client.hpp>
+#include <keylock/verify/direct_transport.hpp>
 #include <keylock/verify/server.hpp>
-#include <thread>
 
 using namespace keylock;
 
@@ -107,44 +107,32 @@ TEST_CASE("SimpleRevocationHandler - Verify Chain") {
     }
 }
 
-TEST_CASE("Server - Construction and Configuration") {
+TEST_CASE("RequestProcessor - Construction and Configuration") {
     auto handler = std::make_shared<verify::SimpleRevocationHandler>();
 
-    SUBCASE("Default configuration") {
-        verify::ServerConfig config;
-        config.host = "127.0.0.1";
-        config.port = 50052; // Use different port for testing
-
-        verify::Server server(handler, config);
-        CHECK(server.address() == "127.0.0.1:50052");
-        CHECK_FALSE(server.is_running());
+    SUBCASE("Basic construction") {
+        verify::RequestProcessor processor(handler);
+        auto stats = processor.get_stats();
+        CHECK(stats.total_requests == 0);
     }
 
     SUBCASE("Set signing key") {
-        verify::ServerConfig config;
-        config.host = "127.0.0.1";
-        config.port = 50053;
-
-        verify::Server server(handler, config);
+        verify::RequestProcessor processor(handler);
 
         // Generate Ed25519 key
         std::vector<uint8_t> pk(crypto_sign_PUBLICKEYBYTES);
         std::vector<uint8_t> sk(crypto_sign_SECRETKEYBYTES);
         crypto_sign_keypair(pk.data(), sk.data());
 
-        CHECK_NOTHROW(server.set_signing_key(sk));
+        CHECK_NOTHROW(processor.set_signing_key(sk));
 
         // Invalid key size should throw
         std::vector<uint8_t> bad_key(32);
-        CHECK_THROWS(server.set_signing_key(bad_key));
+        CHECK_THROWS(processor.set_signing_key(bad_key));
     }
 
     SUBCASE("Set responder certificate") {
-        verify::ServerConfig config;
-        config.host = "127.0.0.1";
-        config.port = 50054;
-
-        verify::Server server(handler, config);
+        verify::RequestProcessor processor(handler);
 
         // Generate a test certificate
         crypto::Context ctx(crypto::Context::Algorithm::Ed25519);
@@ -168,19 +156,15 @@ TEST_CASE("Server - Construction and Configuration") {
         auto cert_result = builder.build_ed25519(keys, true);
         REQUIRE(cert_result.success);
 
-        CHECK_NOTHROW(server.set_responder_certificate(cert_result.value));
+        CHECK_NOTHROW(processor.set_responder_certificate(cert_result.value));
     }
 }
 
-TEST_CASE("Server - Statistics") {
+TEST_CASE("RequestProcessor - Statistics") {
     auto handler = std::make_shared<verify::SimpleRevocationHandler>();
-    verify::ServerConfig config;
-    config.host = "127.0.0.1";
-    config.port = 50055;
+    verify::RequestProcessor processor(handler);
 
-    verify::Server server(handler, config);
-
-    auto stats = server.get_stats();
+    auto stats = processor.get_stats();
     CHECK(stats.total_requests == 0);
     CHECK(stats.total_batch_requests == 0);
     CHECK(stats.total_health_checks == 0);
@@ -189,17 +173,9 @@ TEST_CASE("Server - Statistics") {
     CHECK(stats.unknown_responses == 0);
 }
 
-// Integration test - Start server, connect client, verify certificate
-TEST_CASE("Server-Client Integration") {
-    // NOTE: This test actually starts a server, which may fail in CI/CD environments
-    // without proper network setup. Consider marking as integration test.
-
+TEST_CASE("RequestProcessor - Process Requests") {
     auto handler = std::make_shared<verify::SimpleRevocationHandler>();
-    verify::ServerConfig server_config;
-    server_config.host = "127.0.0.1";
-    server_config.port = 50056;
-
-    verify::Server server(handler, server_config);
+    verify::RequestProcessor processor(handler);
 
     // Generate a test certificate
     crypto::Context ctx(crypto::Context::Algorithm::Ed25519);
@@ -213,7 +189,7 @@ TEST_CASE("Server-Client Integration") {
 
     cert::CertificateBuilder builder;
     builder.set_version(3)
-        .set_serial(1)
+        .set_serial(12345)
         .set_subject(dn_result.value)
         .set_issuer(dn_result.value)
         .set_validity(not_before, not_after)
@@ -224,18 +200,198 @@ TEST_CASE("Server-Client Integration") {
     REQUIRE(cert_result.success);
     auto test_cert = cert_result.value;
 
-    // Start server in background
-    server.start_async();
+    SUBCASE("Health check") {
+        verify::wire::HealthCheckRequest req;
+        auto req_data = verify::wire::Serializer::serialize(req);
+        auto resp_data = processor.process(verify::methods::HEALTH_CHECK, req_data);
 
-    // Give server time to start
-    std::this_thread::sleep_for(std::chrono::milliseconds(500));
+        verify::wire::HealthCheckResponse resp;
+        REQUIRE(verify::wire::Serializer::deserialize(resp_data, resp));
+        CHECK(resp.status == verify::wire::HealthCheckResponse::ServingStatus::SERVING);
 
-    CHECK(server.is_running());
+        auto stats = processor.get_stats();
+        CHECK(stats.total_health_checks == 1);
+    }
 
-    // TODO: Create client and test verification
-    // This requires proper async server implementation with request handling
+    SUBCASE("Verify good certificate") {
+        verify::wire::VerifyRequest req;
+        verify::wire::CertificateData cert_data;
+        cert_data.der_bytes = test_cert.to_der();
+        req.certificate_chain.push_back(std::move(cert_data));
+        req.validation_timestamp = std::chrono::system_clock::now();
+        req.flags = verify::wire::RequestFlags::NONE;
+        req.nonce.resize(32);
+        randombytes_buf(req.nonce.data(), req.nonce.size());
 
-    // Cleanup
-    server.stop();
-    CHECK_FALSE(server.is_running());
+        auto req_data = verify::wire::Serializer::serialize(req);
+        auto resp_data = processor.process(verify::methods::CHECK_CERTIFICATE, req_data);
+
+        verify::wire::VerifyResponse resp;
+        REQUIRE(verify::wire::Serializer::deserialize(resp_data, resp));
+        CHECK(resp.status == verify::wire::VerifyStatus::GOOD);
+        CHECK(resp.nonce == req.nonce);
+
+        auto stats = processor.get_stats();
+        CHECK(stats.total_requests == 1);
+        CHECK(stats.good_responses == 1);
+    }
+
+    SUBCASE("Verify revoked certificate") {
+        // Add certificate to revocation list
+        handler->add_revoked_certificate(test_cert.tbs().serial_number, "Test revocation");
+
+        verify::wire::VerifyRequest req;
+        verify::wire::CertificateData cert_data;
+        cert_data.der_bytes = test_cert.to_der();
+        req.certificate_chain.push_back(std::move(cert_data));
+        req.validation_timestamp = std::chrono::system_clock::now();
+        req.flags = verify::wire::RequestFlags::NONE;
+        req.nonce.resize(32);
+        randombytes_buf(req.nonce.data(), req.nonce.size());
+
+        auto req_data = verify::wire::Serializer::serialize(req);
+        auto resp_data = processor.process(verify::methods::CHECK_CERTIFICATE, req_data);
+
+        verify::wire::VerifyResponse resp;
+        REQUIRE(verify::wire::Serializer::deserialize(resp_data, resp));
+        CHECK(resp.status == verify::wire::VerifyStatus::REVOKED);
+        CHECK(resp.reason == "Test revocation");
+    }
+}
+
+TEST_CASE("DirectTransport - Basic Operations") {
+    auto handler = std::make_shared<verify::SimpleRevocationHandler>();
+    auto processor = std::make_shared<verify::RequestProcessor>(handler);
+    verify::DirectTransport transport(processor);
+
+    CHECK(transport.is_ready());
+    CHECK(transport.last_error().empty());
+
+    SUBCASE("Health check via transport") {
+        verify::wire::HealthCheckRequest req;
+        auto req_data = verify::wire::Serializer::serialize(req);
+        auto resp_data = transport.call(verify::methods::HEALTH_CHECK, req_data);
+
+        CHECK_FALSE(resp_data.empty());
+
+        verify::wire::HealthCheckResponse resp;
+        REQUIRE(verify::wire::Serializer::deserialize(resp_data, resp));
+        CHECK(resp.status == verify::wire::HealthCheckResponse::ServingStatus::SERVING);
+    }
+}
+
+TEST_CASE("Verifier - Integration Test") {
+    verify::Verifier verifier;
+
+    CHECK(verifier.as_revocation_handler() != nullptr);
+
+    // Generate a test certificate
+    crypto::Context ctx(crypto::Context::Algorithm::Ed25519);
+    auto keys = ctx.generate_keypair();
+
+    auto dn_result = cert::DistinguishedName::from_string("CN=Test Cert");
+    REQUIRE(dn_result.success);
+
+    auto not_before = std::chrono::system_clock::now();
+    auto not_after = not_before + std::chrono::hours(24 * 365);
+
+    cert::CertificateBuilder builder;
+    builder.set_version(3)
+        .set_serial(12345)
+        .set_subject(dn_result.value)
+        .set_issuer(dn_result.value)
+        .set_validity(not_before, not_after)
+        .set_subject_public_key_ed25519(keys.public_key)
+        .set_basic_constraints(true, std::nullopt, true);
+
+    auto cert_result = builder.build_ed25519(keys, true);
+    REQUIRE(cert_result.success);
+    auto test_cert = cert_result.value;
+
+    SUBCASE("Health check") {
+        auto result = verifier.health_check();
+        CHECK(result.success);
+        CHECK(result.value == true);
+    }
+
+    SUBCASE("Verify good certificate") {
+        std::vector<cert::Certificate> chain = {test_cert};
+        auto result = verifier.verify_chain(chain);
+
+        CHECK(result.success);
+        CHECK(result.value.status == verify::wire::VerifyStatus::GOOD);
+        CHECK(result.value.valid == true);
+    }
+
+    SUBCASE("Verify revoked certificate") {
+        // Add to revocation list
+        verifier.as_revocation_handler()->add_revoked_certificate(test_cert.tbs().serial_number, "Test revocation");
+
+        std::vector<cert::Certificate> chain = {test_cert};
+        auto result = verifier.verify_chain(chain);
+
+        CHECK(result.success);
+        CHECK(result.value.status == verify::wire::VerifyStatus::REVOKED);
+        CHECK(result.value.valid == false);
+        CHECK(result.value.reason == "Test revocation");
+    }
+
+    // Note: Batch verification test skipped - batch wire format deserialization
+    // needs to be fully implemented in wire_format.cpp
+}
+
+TEST_CASE("Client - With DirectTransport") {
+    auto handler = std::make_shared<verify::SimpleRevocationHandler>();
+    auto processor = std::make_shared<verify::RequestProcessor>(handler);
+    auto transport = std::make_shared<verify::DirectTransport>(processor);
+
+    verify::Client client(transport);
+
+    CHECK(client.is_ready());
+
+    // Generate a test certificate
+    crypto::Context ctx(crypto::Context::Algorithm::Ed25519);
+    auto keys = ctx.generate_keypair();
+
+    auto dn_result = cert::DistinguishedName::from_string("CN=Test Cert");
+    REQUIRE(dn_result.success);
+
+    auto not_before = std::chrono::system_clock::now();
+    auto not_after = not_before + std::chrono::hours(24 * 365);
+
+    cert::CertificateBuilder builder;
+    builder.set_version(3)
+        .set_serial(99999)
+        .set_subject(dn_result.value)
+        .set_issuer(dn_result.value)
+        .set_validity(not_before, not_after)
+        .set_subject_public_key_ed25519(keys.public_key)
+        .set_basic_constraints(true, std::nullopt, true);
+
+    auto cert_result = builder.build_ed25519(keys, true);
+    REQUIRE(cert_result.success);
+    auto test_cert = cert_result.value;
+
+    SUBCASE("Health check") {
+        auto result = client.health_check();
+        CHECK(result.success);
+        CHECK(result.value == true);
+    }
+
+    SUBCASE("Verify chain") {
+        std::vector<cert::Certificate> chain = {test_cert};
+        auto result = client.verify_chain(chain);
+
+        CHECK(result.success);
+        CHECK(result.value.status == verify::wire::VerifyStatus::GOOD);
+        CHECK(result.value.nonce.size() == 32);
+    }
+
+    SUBCASE("Empty chain error") {
+        std::vector<cert::Certificate> chain;
+        auto result = client.verify_chain(chain);
+
+        CHECK_FALSE(result.success);
+        CHECK(result.error == "Certificate chain is empty");
+    }
 }
