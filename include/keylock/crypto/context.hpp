@@ -12,8 +12,8 @@
 
 #include "keylock/cert/files.hpp"
 #include "keylock/crypto/common.hpp"
-#include "keylock/hash/algorithms.hpp"
 #include "keylock/hash/blake2b/blake2b.hpp"
+#include "keylock/hash/context.hpp"
 
 // Our crypto implementations
 #include "keylock/crypto/aead_aes256gcm/aead.hpp"
@@ -238,13 +238,12 @@ namespace keylock::crypto {
         }
 
         bool save_key_to_file(const std::vector<uint8_t> &key, const std::string &filename, KeyType key_type,
-                              utils::KeyFormat format = utils::KeyFormat::RAW);
+                              KeyFormat format = KeyFormat::RAW);
 
         CryptoResult load_key_from_file(const std::string &filename, KeyType key_type);
 
         bool save_keypair_to_files(const KeyPair &keypair, const std::string &public_filename,
-                                   const std::string &private_filename,
-                                   utils::KeyFormat format = utils::KeyFormat::RAW) {
+                                   const std::string &private_filename, KeyFormat format = KeyFormat::RAW) {
             return save_key_to_file(keypair.public_key, public_filename, KeyType::PUBLIC, format) &&
                    save_key_to_file(keypair.private_key, private_filename, KeyType::PRIVATE, format);
         }
@@ -261,8 +260,8 @@ namespace keylock::crypto {
             return {true, priv.data, ""};
         }
 
-        static std::string to_hex(const std::vector<uint8_t> &data) { return utils::Common::bytes_to_hex(data); }
-        static std::vector<uint8_t> from_hex(const std::string &hex) { return utils::Common::hex_to_bytes(hex); }
+        static std::string to_hex(const std::vector<uint8_t> &data) { return Common::bytes_to_hex(data); }
+        static std::vector<uint8_t> from_hex(const std::string &hex) { return Common::hex_to_bytes(hex); }
 
         static std::string algorithm_to_string(Algorithm algorithm) {
             switch (algorithm) {
@@ -572,9 +571,8 @@ namespace keylock::crypto {
 namespace keylock::crypto {
 
     inline bool Context::save_key_to_file(const std::vector<uint8_t> &key, const std::string &filename,
-                                          KeyType key_type, utils::KeyFormat format) {
-        if (format == utils::KeyFormat::PKCS8 && current_algorithm_ == Algorithm::Ed25519 &&
-            key_type == KeyType::PRIVATE) {
+                                          KeyType key_type, KeyFormat format) {
+        if (format == KeyFormat::PKCS8 && current_algorithm_ == Algorithm::Ed25519 && key_type == KeyType::PRIVATE) {
             if (key.size() != ed25519::SECRETKEYBYTES) {
                 return false;
             }

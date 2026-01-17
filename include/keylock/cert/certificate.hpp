@@ -22,7 +22,7 @@
 #include <keylock/cert/oid_registry.hpp>
 #include <keylock/cert/pem.hpp>
 #include <keylock/crypto/context.hpp>
-#include <keylock/hash/algorithms.hpp>
+#include <keylock/hash/context.hpp>
 
 // Forward declarations for verify module
 namespace keylock::verify {

@@ -6,7 +6,7 @@
 #include <string_view>
 #include <vector>
 
-#include <keylock/hash/algorithms.hpp>
+#include <keylock/hash/context.hpp>
 
 namespace keylock::cert {
 

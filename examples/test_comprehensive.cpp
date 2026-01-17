@@ -20,7 +20,7 @@ int main() {
     // Symmetric encryption with XChaCha20-Poly1305
     {
         keylock::keylock crypto(keylock::keylock::Algorithm::XChaCha20_Poly1305);
-        auto key = crypto.generate_symmetric_key(keylock::utils::Common::XCHACHA20_KEY_SIZE);
+        auto key = crypto.generate_symmetric_key(keylock::crypto::Common::XCHACHA20_KEY_SIZE);
         assert(key.success);
 
         auto ciphertext = crypto.encrypt(payload, key.data);
@@ -34,7 +34,7 @@ int main() {
     // SecretBox XSalsa20-Poly1305
     {
         keylock::keylock crypto(keylock::keylock::Algorithm::SecretBox_XSalsa20);
-        auto key = crypto.generate_symmetric_key(keylock::utils::Common::SECRETBOX_KEY_SIZE);
+        auto key = crypto.generate_symmetric_key(keylock::crypto::Common::SECRETBOX_KEY_SIZE);
         assert(key.success);
         auto ciphertext = crypto.encrypt(payload, key.data);
         assert(ciphertext.success);
@@ -48,12 +48,12 @@ int main() {
         keylock::keylock sha256(keylock::keylock::Algorithm::XChaCha20_Poly1305,
                               keylock::keylock::HashAlgorithm::SHA256);
         auto digest256 = sha256.hash(payload);
-        assert(digest256.success && digest256.data.size() == keylock::utils::Common::SHA256_DIGEST_SIZE);
+        assert(digest256.success && digest256.data.size() == keylock::crypto::Common::SHA256_DIGEST_SIZE);
 
         keylock::keylock blake(keylock::keylock::Algorithm::XChaCha20_Poly1305,
                              keylock::keylock::HashAlgorithm::BLAKE2b);
         auto digestBlake = blake.hash(payload);
-        assert(digestBlake.success && digestBlake.data.size() == keylock::utils::Common::BLAKE2B_DIGEST_SIZE);
+        assert(digestBlake.success && digestBlake.data.size() == keylock::crypto::Common::BLAKE2B_DIGEST_SIZE);
 
         std::cout << "✓ Hashing (SHA-256 + BLAKE2b) succeeded\n";
     }

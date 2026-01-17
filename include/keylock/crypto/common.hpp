@@ -15,34 +15,33 @@
 #include "keylock/crypto/secretbox_xsalsa20poly1305/secretbox.hpp"
 #include "keylock/crypto/sign_ed25519/ed25519.hpp"
 
-namespace keylock::utils {
+namespace keylock::crypto {
 
     enum class KeyFormat { RAW, PKCS8 };
 
     class Common {
       public:
-        static constexpr size_t XCHACHA20_KEY_SIZE = crypto::aead_xchacha20poly1305::KEYBYTES;
-        static constexpr size_t XCHACHA20_NONCE_SIZE = crypto::aead_xchacha20poly1305::NPUBBYTES;
-        static constexpr size_t XCHACHA20_TAG_SIZE = crypto::aead_xchacha20poly1305::ABYTES;
+        static constexpr size_t XCHACHA20_KEY_SIZE = aead_xchacha20poly1305::KEYBYTES;
+        static constexpr size_t XCHACHA20_NONCE_SIZE = aead_xchacha20poly1305::NPUBBYTES;
+        static constexpr size_t XCHACHA20_TAG_SIZE = aead_xchacha20poly1305::ABYTES;
 
-        static constexpr size_t CHACHA20_IETF_KEY_SIZE = crypto::aead_chacha20poly1305_ietf::KEYBYTES;
-        static constexpr size_t CHACHA20_IETF_NONCE_SIZE = crypto::aead_chacha20poly1305_ietf::NPUBBYTES;
-        static constexpr size_t CHACHA20_IETF_TAG_SIZE = crypto::aead_chacha20poly1305_ietf::ABYTES;
+        static constexpr size_t CHACHA20_IETF_KEY_SIZE = aead_chacha20poly1305_ietf::KEYBYTES;
+        static constexpr size_t CHACHA20_IETF_NONCE_SIZE = aead_chacha20poly1305_ietf::NPUBBYTES;
+        static constexpr size_t CHACHA20_IETF_TAG_SIZE = aead_chacha20poly1305_ietf::ABYTES;
 
-        static constexpr size_t AES256_GCM_KEY_SIZE = crypto::aead_aes256gcm::KEYBYTES;
-        static constexpr size_t AES256_GCM_NONCE_SIZE = crypto::aead_aes256gcm::NPUBBYTES;
-        static constexpr size_t AES256_GCM_TAG_SIZE = crypto::aead_aes256gcm::ABYTES;
+        static constexpr size_t AES256_GCM_KEY_SIZE = aead_aes256gcm::KEYBYTES;
+        static constexpr size_t AES256_GCM_NONCE_SIZE = aead_aes256gcm::NPUBBYTES;
+        static constexpr size_t AES256_GCM_TAG_SIZE = aead_aes256gcm::ABYTES;
 
-        static constexpr size_t SECRETBOX_KEY_SIZE = crypto::secretbox::KEYBYTES;
-        static constexpr size_t SECRETBOX_NONCE_SIZE = crypto::secretbox::NONCEBYTES;
-        static constexpr size_t SECRETBOX_MAC_SIZE = crypto::secretbox::MACBYTES;
+        static constexpr size_t SECRETBOX_KEY_SIZE = secretbox::KEYBYTES;
+        static constexpr size_t SECRETBOX_NONCE_SIZE = secretbox::NONCEBYTES;
+        static constexpr size_t SECRETBOX_MAC_SIZE = secretbox::MACBYTES;
 
-        static constexpr size_t X25519_PUBLIC_KEY_SIZE = crypto::box_seal::PUBLICKEYBYTES;
-        static constexpr size_t X25519_PRIVATE_KEY_SIZE =
-            crypto::box_seal::PUBLICKEYBYTES + crypto::box_seal::SECRETKEYBYTES;
+        static constexpr size_t X25519_PUBLIC_KEY_SIZE = box_seal::PUBLICKEYBYTES;
+        static constexpr size_t X25519_PRIVATE_KEY_SIZE = box_seal::PUBLICKEYBYTES + box_seal::SECRETKEYBYTES;
 
-        static constexpr size_t ED25519_PUBLIC_KEY_SIZE = crypto::ed25519::PUBLICKEYBYTES;
-        static constexpr size_t ED25519_PRIVATE_KEY_SIZE = crypto::ed25519::SECRETKEYBYTES;
+        static constexpr size_t ED25519_PUBLIC_KEY_SIZE = ed25519::PUBLICKEYBYTES;
+        static constexpr size_t ED25519_PRIVATE_KEY_SIZE = ed25519::SECRETKEYBYTES;
 
         static constexpr size_t SHA256_DIGEST_SIZE = 32;
         static constexpr size_t SHA512_DIGEST_SIZE = 64;
@@ -50,7 +49,7 @@ namespace keylock::utils {
 
         static inline std::vector<uint8_t> generate_random_bytes(size_t size) {
             std::vector<uint8_t> bytes(size);
-            crypto::rng::randombytes_buf(bytes.data(), bytes.size());
+            rng::randombytes_buf(bytes.data(), bytes.size());
             return bytes;
         }
 
@@ -159,4 +158,4 @@ namespace keylock::utils {
 
     inline std::vector<uint8_t> from_hex(const std::string &hex) { return Common::hex_to_bytes(hex); }
 
-} // namespace keylock::utils
+} // namespace keylock::crypto
