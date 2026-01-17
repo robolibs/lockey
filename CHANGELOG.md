@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.0.8] - 2026-01-17
+
+### <!-- 0 -->⛰️  Features
+
+- Migrate to header-only implementation
+
 ## [0.0.7] - 2026-01-17
 
 ### <!-- 0 -->⛰️  Features

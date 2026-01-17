@@ -119,4 +119,17 @@ namespace keylock::cert {
         CurveId curve{CurveId::Unknown};
     };
 
+    struct SubjectPublicKeyInfo {
+        AlgorithmIdentifier algorithm{};
+        std::vector<uint8_t> public_key;
+        uint8_t unused_bits{};
+    };
+
+    struct RawExtension {
+        Oid oid{};
+        ExtensionId id{ExtensionId::Unknown};
+        bool critical{};
+        std::vector<uint8_t> value;
+    };
+
 } // namespace keylock::cert
