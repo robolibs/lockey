@@ -95,6 +95,137 @@ namespace {
         }
     }
 
+    CryptoResult aead_chacha_ietf_encrypt(const std::vector<uint8_t> &plaintext, const std::vector<uint8_t> &key,
+                                          const std::vector<uint8_t> &aad) {
+        try {
+            auto normalized_key = normalize_key(key, crypto_aead_chacha20poly1305_ietf_KEYBYTES);
+
+            std::vector<uint8_t> nonce(crypto_aead_chacha20poly1305_ietf_NPUBBYTES);
+            randombytes_buf(nonce.data(), nonce.size());
+
+            std::vector<uint8_t> ciphertext(plaintext.size() + crypto_aead_chacha20poly1305_ietf_ABYTES);
+            unsigned long long ciphertext_len = 0;
+
+            if (crypto_aead_chacha20poly1305_ietf_encrypt(ciphertext.data(), &ciphertext_len, plaintext.data(),
+                                                          plaintext.size(), aad.data(), aad.size(), nullptr,
+                                                          nonce.data(), normalized_key.data()) != 0) {
+                return {false, {}, "ChaCha20-Poly1305 IETF encryption failed"};
+            }
+
+            ciphertext.resize(ciphertext_len);
+            std::vector<uint8_t> result;
+            result.reserve(nonce.size() + ciphertext.size());
+            result.insert(result.end(), nonce.begin(), nonce.end());
+            result.insert(result.end(), ciphertext.begin(), ciphertext.end());
+            return {true, result, ""};
+        } catch (const std::exception &e) {
+            return {false, {}, e.what()};
+        }
+    }
+
+    CryptoResult aead_chacha_ietf_decrypt(const std::vector<uint8_t> &ciphertext_with_nonce,
+                                          const std::vector<uint8_t> &key, const std::vector<uint8_t> &aad) {
+        try {
+            if (ciphertext_with_nonce.size() <
+                crypto_aead_chacha20poly1305_ietf_NPUBBYTES + crypto_aead_chacha20poly1305_ietf_ABYTES) {
+                return {false, {}, "Ciphertext too short"};
+            }
+
+            auto normalized_key = normalize_key(key, crypto_aead_chacha20poly1305_ietf_KEYBYTES);
+            std::vector<uint8_t> nonce(ciphertext_with_nonce.begin(),
+                                       ciphertext_with_nonce.begin() + crypto_aead_chacha20poly1305_ietf_NPUBBYTES);
+            std::vector<uint8_t> ciphertext(ciphertext_with_nonce.begin() + crypto_aead_chacha20poly1305_ietf_NPUBBYTES,
+                                            ciphertext_with_nonce.end());
+
+            if (ciphertext.size() < crypto_aead_chacha20poly1305_ietf_ABYTES) {
+                return {false, {}, "Ciphertext too short"};
+            }
+
+            std::vector<uint8_t> plaintext(ciphertext.size() - crypto_aead_chacha20poly1305_ietf_ABYTES);
+            unsigned long long plaintext_len = 0;
+
+            if (crypto_aead_chacha20poly1305_ietf_decrypt(plaintext.data(), &plaintext_len, nullptr, ciphertext.data(),
+                                                          ciphertext.size(), aad.data(), aad.size(), nonce.data(),
+                                                          normalized_key.data()) != 0) {
+                return {false, {}, "Authentication failed"};
+            }
+
+            plaintext.resize(plaintext_len);
+            return {true, plaintext, ""};
+        } catch (const std::exception &e) {
+            return {false, {}, e.what()};
+        }
+    }
+
+    CryptoResult aead_aes256gcm_encrypt(const std::vector<uint8_t> &plaintext, const std::vector<uint8_t> &key,
+                                        const std::vector<uint8_t> &aad) {
+        try {
+            if (crypto_aead_aes256gcm_is_available() == 0) {
+                return {false, {}, "AES-GCM not available (requires AES-NI hardware support)"};
+            }
+
+            auto normalized_key = normalize_key(key, crypto_aead_aes256gcm_KEYBYTES);
+
+            std::vector<uint8_t> nonce(crypto_aead_aes256gcm_NPUBBYTES);
+            randombytes_buf(nonce.data(), nonce.size());
+
+            std::vector<uint8_t> ciphertext(plaintext.size() + crypto_aead_aes256gcm_ABYTES);
+            unsigned long long ciphertext_len = 0;
+
+            if (crypto_aead_aes256gcm_encrypt(ciphertext.data(), &ciphertext_len, plaintext.data(), plaintext.size(),
+                                              aad.data(), aad.size(), nullptr, nonce.data(),
+                                              normalized_key.data()) != 0) {
+                return {false, {}, "AES-256-GCM encryption failed"};
+            }
+
+            ciphertext.resize(ciphertext_len);
+            std::vector<uint8_t> result;
+            result.reserve(nonce.size() + ciphertext.size());
+            result.insert(result.end(), nonce.begin(), nonce.end());
+            result.insert(result.end(), ciphertext.begin(), ciphertext.end());
+            return {true, result, ""};
+        } catch (const std::exception &e) {
+            return {false, {}, e.what()};
+        }
+    }
+
+    CryptoResult aead_aes256gcm_decrypt(const std::vector<uint8_t> &ciphertext_with_nonce,
+                                        const std::vector<uint8_t> &key, const std::vector<uint8_t> &aad) {
+        try {
+            if (crypto_aead_aes256gcm_is_available() == 0) {
+                return {false, {}, "AES-GCM not available (requires AES-NI hardware support)"};
+            }
+
+            if (ciphertext_with_nonce.size() < crypto_aead_aes256gcm_NPUBBYTES + crypto_aead_aes256gcm_ABYTES) {
+                return {false, {}, "Ciphertext too short"};
+            }
+
+            auto normalized_key = normalize_key(key, crypto_aead_aes256gcm_KEYBYTES);
+            std::vector<uint8_t> nonce(ciphertext_with_nonce.begin(),
+                                       ciphertext_with_nonce.begin() + crypto_aead_aes256gcm_NPUBBYTES);
+            std::vector<uint8_t> ciphertext(ciphertext_with_nonce.begin() + crypto_aead_aes256gcm_NPUBBYTES,
+                                            ciphertext_with_nonce.end());
+
+            if (ciphertext.size() < crypto_aead_aes256gcm_ABYTES) {
+                return {false, {}, "Ciphertext too short"};
+            }
+
+            std::vector<uint8_t> plaintext(ciphertext.size() - crypto_aead_aes256gcm_ABYTES);
+            unsigned long long plaintext_len = 0;
+
+            if (crypto_aead_aes256gcm_decrypt(plaintext.data(), &plaintext_len, nullptr, ciphertext.data(),
+                                              ciphertext.size(), aad.data(), aad.size(), nonce.data(),
+                                              normalized_key.data()) != 0) {
+                return {false, {}, "Authentication failed"};
+            }
+
+            plaintext.resize(plaintext_len);
+            return {true, plaintext, ""};
+        } catch (const std::exception &e) {
+            return {false, {}, e.what()};
+        }
+    }
+
     CryptoResult secretbox_encrypt(const std::vector<uint8_t> &plaintext, const std::vector<uint8_t> &key) {
         try {
             auto normalized_key = normalize_key(key, crypto_secretbox_KEYBYTES);
@@ -164,11 +295,18 @@ namespace keylock::crypto {
 
         utils::ensure_sodium_init();
 
-        if (current_algorithm_ == Algorithm::XChaCha20_Poly1305) {
+        switch (current_algorithm_) {
+        case Algorithm::XChaCha20_Poly1305:
             return aead_xchacha_encrypt(plaintext, key, associated_data);
+        case Algorithm::ChaCha20_Poly1305:
+            return aead_chacha_ietf_encrypt(plaintext, key, associated_data);
+        case Algorithm::AES256_GCM:
+            return aead_aes256gcm_encrypt(plaintext, key, associated_data);
+        case Algorithm::SecretBox_XSalsa20:
+            return secretbox_encrypt(plaintext, key);
+        default:
+            return {false, {}, "Unsupported symmetric algorithm"};
         }
-
-        return secretbox_encrypt(plaintext, key);
     }
 
     Context::CryptoResult Context::decrypt(const std::vector<uint8_t> &ciphertext, const std::vector<uint8_t> &key,
@@ -179,11 +317,18 @@ namespace keylock::crypto {
 
         utils::ensure_sodium_init();
 
-        if (current_algorithm_ == Algorithm::XChaCha20_Poly1305) {
+        switch (current_algorithm_) {
+        case Algorithm::XChaCha20_Poly1305:
             return aead_xchacha_decrypt(ciphertext, key, associated_data);
+        case Algorithm::ChaCha20_Poly1305:
+            return aead_chacha_ietf_decrypt(ciphertext, key, associated_data);
+        case Algorithm::AES256_GCM:
+            return aead_aes256gcm_decrypt(ciphertext, key, associated_data);
+        case Algorithm::SecretBox_XSalsa20:
+            return secretbox_decrypt(ciphertext, key);
+        default:
+            return {false, {}, "Unsupported symmetric algorithm"};
         }
-
-        return secretbox_decrypt(ciphertext, key);
     }
 
     Context::CryptoResult Context::encrypt_asymmetric(const std::vector<uint8_t> &plaintext,
@@ -459,6 +604,10 @@ namespace keylock::crypto {
         switch (algorithm) {
         case Algorithm::XChaCha20_Poly1305:
             return "XChaCha20-Poly1305";
+        case Algorithm::ChaCha20_Poly1305:
+            return "ChaCha20-Poly1305-IETF";
+        case Algorithm::AES256_GCM:
+            return "AES-256-GCM";
         case Algorithm::SecretBox_XSalsa20:
             return "SecretBox-XSalsa20-Poly1305";
         case Algorithm::X25519_Box:
@@ -467,6 +616,11 @@ namespace keylock::crypto {
             return "Ed25519";
         }
         return "Unknown";
+    }
+
+    bool Context::is_aes_gcm_available() {
+        utils::ensure_sodium_init();
+        return crypto_aead_aes256gcm_is_available() != 0;
     }
 
     std::string Context::hash_algorithm_to_string(HashAlgorithm hash_algo) {
@@ -499,7 +653,8 @@ namespace keylock::crypto {
     }
 
     bool Context::is_symmetric_algorithm(Algorithm algo) const {
-        return algo == Algorithm::XChaCha20_Poly1305 || algo == Algorithm::SecretBox_XSalsa20;
+        return algo == Algorithm::XChaCha20_Poly1305 || algo == Algorithm::ChaCha20_Poly1305 ||
+               algo == Algorithm::AES256_GCM || algo == Algorithm::SecretBox_XSalsa20;
     }
 
     bool Context::is_asymmetric_algorithm(Algorithm algo) const { return algo == Algorithm::X25519_Box; }
