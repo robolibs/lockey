@@ -2,7 +2,7 @@
 
 # keylock
 
-A lightweight C++20 libsodium wrapper with a complete Ed25519-focused X.509 certificate toolkit.
+A lightweight C++20 cryptographic library with internal implementations and a complete Ed25519-focused X.509 certificate toolkit.
 
 ## Development Status
 
@@ -10,7 +10,7 @@ See [TODO.md](./TODO.md) for the complete development plan and current progress.
 
 ## Overview
 
-keylock wraps the battle-tested **libsodium** cryptography library in a clean, modern C++20 API. It provides only modern, authenticated primitives: XChaCha20-Poly1305 for symmetric encryption, X25519 sealed boxes for public-key encryption, Ed25519 for digital signatures, and SHA-256/SHA-512/BLAKE2b for hashing. No RSA, no ECDSA, no legacy baggage.
+keylock provides pure C++ implementations of modern, authenticated cryptographic primitives: XChaCha20-Poly1305 for symmetric encryption, X25519 sealed boxes for public-key encryption, Ed25519 for digital signatures, and SHA-256/SHA-512/BLAKE2b for hashing. No RSA, no ECDSA, no legacy baggage, no external crypto dependencies.
 
 Beyond cryptographic primitives, keylock includes a complete X.509 certificate toolkit built entirely in pure C++. The library implements its own ASN.1 DER parser and encoder without any external dependencies like OpenSSL or Boost. This enables full certificate parsing, generation, validation, and chain verification using modern Ed25519 signatures throughout.
 
@@ -36,8 +36,8 @@ The design philosophy prioritizes safety and simplicity. All fallible operations
         └───────────────┴───────────────┴──────────────────────────────┘
                                     │
                         ┌───────────▼───────────┐
-                        │      libsodium        │
-                        │  (crypto primitives)  │
+                        │   Internal Crypto     │
+                        │    (pure C++20)       │
                         └───────────────────────┘
 ```
 
@@ -315,15 +315,15 @@ auto key_result = ctx.load_key_from_file("/secure/private.key", keylock::crypto:
 - Implement rate limiting for verification services
 
 **Random Number Generation:**
-- Always use libsodium's RNG (never std::rand or similar)
+- Always use keylock's cryptographic RNG (never std::rand or similar)
 - Generate fresh nonces for each encryption operation
 - Use constant-time comparisons for secret data
 
 ```cpp
-// Good: Use libsodium RNG
+// Good: Use keylock's cryptographic RNG
 auto keypair = ctx.generate_keypair();
 std::vector<uint8_t> nonce(24);
-randombytes_buf(nonce.data(), nonce.size());
+keylock::crypto::rng::randombytes_buf(nonce.data(), nonce.size());
 ```
 
 ## Building
@@ -332,7 +332,7 @@ randombytes_buf(nonce.data(), nonce.size());
 # Using Make (recommended)
 make config   # Configure with tests and examples
 make          # Build library
-make test     # Run 34-test suite
+make test     # Run 65-test suite
 
 # Using CMake directly
 cmake -S . -B build \
@@ -349,7 +349,6 @@ xmake test
 
 **Requirements:**
 - C++20 compiler (GCC 10+, Clang 11+)
-- libsodium 1.0.18+
 - CMake 3.14+ or XMake 2.5+
 
 **Build Options:**
@@ -385,6 +384,5 @@ MIT License - see [LICENSE](./LICENSE) for details.
 Made possible thanks to [these amazing projects](./ACKNOWLEDGMENTS.md).
 
 **Core Dependencies:**
-- [libsodium](https://github.com/jedisct1/libsodium) - Modern, portable cryptography library
 - [datapod](https://github.com/robolibs/datapod) - POD-compatible containers for robotics
-- [doctest](https://github.com/doctest/doctest) - Fast C++ testing framework
+- [doctest](https://github.com/doctest/doctest) - Fast C++ testing framework (for tests only)
