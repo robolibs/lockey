@@ -15,7 +15,14 @@ namespace keylock::crypto {
       public:
         using HashAlgorithm = hash::Algorithm;
 
-        enum class Algorithm { XChaCha20_Poly1305, SecretBox_XSalsa20, X25519_Box, Ed25519 };
+        enum class Algorithm {
+            XChaCha20_Poly1305, // 24-byte nonce (extended nonce)
+            ChaCha20_Poly1305,  // 12-byte nonce (IETF RFC 8439)
+            AES256_GCM,         // 12-byte nonce (requires AES-NI hardware)
+            SecretBox_XSalsa20,
+            X25519_Box,
+            Ed25519
+        };
 
         enum class KeyType { PUBLIC, PRIVATE };
 
@@ -72,6 +79,9 @@ namespace keylock::crypto {
 
         static std::string algorithm_to_string(Algorithm algorithm);
         static std::string hash_algorithm_to_string(HashAlgorithm hash_algo);
+
+        // Check if AES-GCM is available (requires AES-NI hardware support)
+        static bool is_aes_gcm_available();
 
       private:
         Algorithm current_algorithm_;

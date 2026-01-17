@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.0.6] - 2026-01-17
+
+### <!-- 0 -->⛰️  Features
+
+- Add support for AES-GCM, ChaCha20-Poly1305, and HKDF
+
 ## [0.0.5] - 2026-01-13
 
 ### <!-- 7 -->⚙️ Miscellaneous Tasks

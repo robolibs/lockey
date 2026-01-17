@@ -17,6 +17,16 @@ namespace keylock::utils {
         static constexpr size_t XCHACHA20_NONCE_SIZE = crypto_aead_xchacha20poly1305_ietf_NPUBBYTES;
         static constexpr size_t XCHACHA20_TAG_SIZE = crypto_aead_xchacha20poly1305_ietf_ABYTES;
 
+        // ChaCha20-Poly1305 IETF (RFC 8439) - 96-bit nonce
+        static constexpr size_t CHACHA20_IETF_KEY_SIZE = crypto_aead_chacha20poly1305_ietf_KEYBYTES;
+        static constexpr size_t CHACHA20_IETF_NONCE_SIZE = crypto_aead_chacha20poly1305_ietf_NPUBBYTES;
+        static constexpr size_t CHACHA20_IETF_TAG_SIZE = crypto_aead_chacha20poly1305_ietf_ABYTES;
+
+        // AES-256-GCM (requires AES-NI hardware)
+        static constexpr size_t AES256_GCM_KEY_SIZE = crypto_aead_aes256gcm_KEYBYTES;
+        static constexpr size_t AES256_GCM_NONCE_SIZE = crypto_aead_aes256gcm_NPUBBYTES;
+        static constexpr size_t AES256_GCM_TAG_SIZE = crypto_aead_aes256gcm_ABYTES;
+
         static constexpr size_t SECRETBOX_KEY_SIZE = crypto_secretbox_KEYBYTES;
         static constexpr size_t SECRETBOX_NONCE_SIZE = crypto_secretbox_NONCEBYTES;
         static constexpr size_t SECRETBOX_MAC_SIZE = crypto_secretbox_MACBYTES;
