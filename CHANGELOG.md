@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.0.12] - 2026-01-17
+
+### <!-- 3 -->📚 Documentation
+
+- Update README for internal crypto implementation
+
 ## [0.0.11] - 2026-01-17
 
 ### <!-- 0 -->⛰️  Features
