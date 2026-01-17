@@ -1,6 +1,5 @@
 #include "keylock/keylock.hpp"
 #include <doctest/doctest.h>
-#include <sodium.h>
 
 TEST_SUITE("Asymmetric Encryption") {
     const std::vector<uint8_t> test_data = {0x48, 0x65, 0x6c, 0x6c, 0x6f, 0x20,

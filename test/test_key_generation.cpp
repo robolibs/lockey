@@ -1,6 +1,5 @@
 #include "keylock/keylock.hpp"
 #include <doctest/doctest.h>
-#include <sodium.h>
 #include <stdexcept>
 
 TEST_SUITE("Key Generation") {

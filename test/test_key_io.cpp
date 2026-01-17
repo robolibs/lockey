@@ -1,11 +1,11 @@
-#include "keylock/io/key_exchange.hpp"
+#include "keylock/cert/key_exchange.hpp"
 #include "keylock/keylock.hpp"
 #include <doctest/doctest.h>
 #include <filesystem>
 #include <fstream>
 
 namespace {
-const std::string test_dir = "/tmp/keylock_test_keys/";
+const std::string test_dir = "/tmp/keylock_test_key_io/";
 
 void cleanup_test_dir() {
     if (std::filesystem::exists(test_dir)) {

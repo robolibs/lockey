@@ -22,7 +22,7 @@ TEST_SUITE("PKCS8 Keys") {
         auto kp = ctx.generate_keypair();
         auto path = test_dir + "ed25519_pkcs8.pem";
 
-        CHECK(ctx.save_key_to_file(kp.private_key, path, Context::KeyType::PRIVATE, keylock::utils::KeyFormat::PKCS8));
+        CHECK(ctx.save_key_to_file(kp.private_key, path, Context::KeyType::PRIVATE, keylock::crypto::KeyFormat::PKCS8));
 
         auto loaded = ctx.load_key_from_file(path, Context::KeyType::PRIVATE);
         REQUIRE(loaded.success);

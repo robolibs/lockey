@@ -7,7 +7,6 @@
 #include <keylock/cert/asn1_writer.hpp>
 #include <keylock/cert/crl.hpp>
 #include <keylock/cert/oid_registry.hpp>
-#include <keylock/utils/sodium_utils.hpp>
 
 namespace keylock::cert {
 

@@ -11,23 +11,20 @@
 #include <string>
 #include <vector>
 
-#include <sodium.h>
-
 #include <keylock/cert/asn1_writer.hpp>
 #include <keylock/cert/certificate.hpp>
 #include <keylock/cert/distinguished_name.hpp>
 #include <keylock/cert/oid_registry.hpp>
 #include <keylock/crypto/context.hpp>
-#include <keylock/utils/sodium_utils.hpp>
+#include <keylock/crypto/rng/randombytes.hpp>
 
 namespace keylock::cert {
 
     namespace detail {
 
         inline std::vector<uint8_t> make_random_serial() {
-            keylock::utils::ensure_sodium_init();
             std::vector<uint8_t> serial(16);
-            randombytes_buf(serial.data(), serial.size());
+            ::keylock::crypto::rng::randombytes_buf(serial.data(), serial.size());
             serial[0] &= 0x7FU; // ensure positive
             return serial;
         }
@@ -295,15 +292,11 @@ namespace keylock::cert {
         }
 
         inline RawExtension build_key_usage_extension(uint16_t bits, bool critical) const {
-            uint16_t value = bits;
-            std::vector<uint8_t> buffer = {static_cast<uint8_t>((value >> 8) & 0xFFU),
-                                           static_cast<uint8_t>(value & 0xFFU)};
-            while (buffer.size() > 1 && buffer.front() == 0) {
-                buffer.erase(buffer.begin());
+            std::vector<uint8_t> buffer;
+            if (bits > 0xFFU) {
+                buffer.push_back(static_cast<uint8_t>((bits >> 8) & 0xFFU));
             }
-            if (buffer.empty()) {
-                buffer.push_back(0);
-            }
+            buffer.push_back(static_cast<uint8_t>(bits & 0xFFU));
             auto bit_string = der::encode_bit_string(ByteSpan(buffer.data(), buffer.size()), 0);
             RawExtension ext{};
             ext.id = ExtensionId::KeyUsage;

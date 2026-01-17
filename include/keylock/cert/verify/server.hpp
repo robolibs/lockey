@@ -9,10 +9,9 @@
 #include <string>
 #include <vector>
 
-#include <sodium.h>
-
 #include <keylock/cert/certificate.hpp>
-#include <keylock/verify/wire_format.hpp>
+#include <keylock/cert/verify/wire_format.hpp>
+#include <keylock/crypto/sign_ed25519/ed25519.hpp>
 
 namespace keylock::verify {
 
@@ -207,7 +206,7 @@ namespace keylock::verify {
     };
 
     inline void RequestProcessor::Impl::sign_response(wire::VerifyResponse &response) {
-        if (signing_key.size() != crypto_sign_SECRETKEYBYTES) {
+        if (signing_key.size() != crypto::ed25519::SECRETKEYBYTES) {
             return;
         }
 
@@ -231,8 +230,9 @@ namespace keylock::verify {
 
         message.insert(message.end(), response.nonce.begin(), response.nonce.end());
 
-        response.signature.resize(crypto_sign_BYTES);
-        crypto_sign_detached(response.signature.data(), nullptr, message.data(), message.size(), signing_key.data());
+        response.signature.resize(crypto::ed25519::BYTES);
+        crypto::ed25519::sign_detached(response.signature.data(), nullptr, message.data(), message.size(),
+                                       signing_key.data());
     }
 
     inline std::vector<uint8_t>
@@ -375,7 +375,7 @@ namespace keylock::verify {
     }
 
     inline void RequestProcessor::set_signing_key(const std::vector<uint8_t> &ed25519_private_key) {
-        if (ed25519_private_key.size() != crypto_sign_SECRETKEYBYTES) {
+        if (ed25519_private_key.size() != crypto::ed25519::SECRETKEYBYTES) {
             throw std::invalid_argument("Invalid Ed25519 private key size");
         }
         impl_->signing_key = ed25519_private_key;

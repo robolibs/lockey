@@ -1,4 +1,4 @@
-#include "keylock/hash/algorithms.hpp"
+#include "keylock/hash/context.hpp"
 #include <doctest/doctest.h>
 
 TEST_SUITE("HKDF Functions") {

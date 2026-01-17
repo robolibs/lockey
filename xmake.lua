@@ -2,7 +2,7 @@
 -- NOTE: Due to xmake description domain limitations, PROJECT_NAME must be hardcoded
 --       and kept in sync with the NAME file. The VERSION is read dynamically.
 local PROJECT_NAME = "keylock"
-local PROJECT_VERSION = "0.0.9"
+local PROJECT_VERSION = "0.0.10"
 
 -- Dependencies formats:
 --   Git:    {"name", "https://github.com/org/repo.git", "tag"}
@@ -11,7 +11,6 @@ local PROJECT_VERSION = "0.0.9"
 local LIB_DEPS = {
     {"echo", "https://github.com/bresilla/echo.git", "0.0.23"},
     {"datapod", "https://github.com/robolibs/datapod.git", "0.0.34"},
-    {system = "libsodium"},
 }
 local EXAMPLE_DEPS = {
     {system = "rerun_sdk"},

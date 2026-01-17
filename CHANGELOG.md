@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.0.10] - 2026-01-17
+
+### <!-- 0 -->⛰️  Features
+
+- Refactor X25519 and Ed25519 implementations
+- Relocate verification and utility headers
+- Replaced libsodium with internal crypto implementations
+
+### <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Add ACKNOWLEDGMENTS.md file
+
 ## [0.0.8] - 2026-01-17
 
 ### <!-- 0 -->⛰️  Features

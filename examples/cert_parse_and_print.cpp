@@ -6,7 +6,7 @@
 #include "keylock/cert/builder.hpp"
 #include "keylock/cert/certificate.hpp"
 #include "keylock/cert/key_utils.hpp"
-#include "keylock/utils/common.hpp"
+#include "keylock/crypto/common.hpp"
 
 int main(int argc, char **argv) {
     using namespace std::chrono_literals;
@@ -40,6 +40,6 @@ int main(int argc, char **argv) {
     auto sans = certificate.subject_alt_names();
     std::cout << "SubjectAltName count: " << sans.size() << "\n";
     const auto fingerprint = certificate.fingerprint(::keylock::hash::Algorithm::SHA256);
-    std::cout << "Fingerprint (SHA-256): " << keylock::utils::to_hex(fingerprint) << "\n";
+    std::cout << "Fingerprint (SHA-256): " << keylock::crypto::to_hex(fingerprint) << "\n";
     return 0;
 }

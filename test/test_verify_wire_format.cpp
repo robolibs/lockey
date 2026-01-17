@@ -1,7 +1,7 @@
 #include <doctest/doctest.h>
 
-#include <keylock/verify/wire_format.hpp>
-#include <sodium.h>
+#include <keylock/keylock.hpp>
+#include <keylock/cert/verify/wire_format.hpp>
 
 TEST_SUITE("verify/wire_format") {
     TEST_CASE("serialize and deserialize VerifyRequest") {

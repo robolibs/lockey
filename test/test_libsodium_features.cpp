@@ -1,6 +1,5 @@
 #include <doctest/doctest.h>
 #include <keylock/keylock.hpp>
-#include <sodium.h>
 
 TEST_SUITE("Libsodium Feature Comparison") {
     TEST_CASE("XChaCha20 vs SecretBox results differ") {

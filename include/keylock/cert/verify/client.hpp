@@ -6,12 +6,12 @@
 #include <string>
 #include <vector>
 
-#include <sodium.h>
-
 #include <keylock/cert/certificate.hpp>
-#include <keylock/verify/server.hpp>
-#include <keylock/verify/transport.hpp>
-#include <keylock/verify/wire_format.hpp>
+#include <keylock/cert/verify/server.hpp>
+#include <keylock/cert/verify/transport.hpp>
+#include <keylock/cert/verify/wire_format.hpp>
+#include <keylock/crypto/rng/randombytes.hpp>
+#include <keylock/crypto/sign_ed25519/ed25519.hpp>
 
 namespace keylock::verify {
 
@@ -141,7 +141,7 @@ namespace keylock::verify {
 
         // Generate nonce
         wire_req.nonce.resize(32);
-        randombytes_buf(wire_req.nonce.data(), wire_req.nonce.size());
+        crypto::rng::randombytes_buf(wire_req.nonce.data(), wire_req.nonce.size());
 
         // Serialize request
         auto request_data = wire::Serializer::serialize(wire_req);
@@ -215,7 +215,7 @@ namespace keylock::verify {
 
             // Generate unique nonce for each request
             wire_req.nonce.resize(32);
-            randombytes_buf(wire_req.nonce.data(), wire_req.nonce.size());
+            crypto::rng::randombytes_buf(wire_req.nonce.data(), wire_req.nonce.size());
 
             batch_req.requests.push_back(std::move(wire_req));
         }
@@ -294,7 +294,7 @@ namespace keylock::verify {
             return false;
         }
 
-        if (response.signature.size() != crypto_sign_BYTES) {
+        if (response.signature.size() != crypto::ed25519::BYTES) {
             return false;
         }
 
@@ -330,13 +330,13 @@ namespace keylock::verify {
 
         // Get public key from responder certificate
         const auto &pub_key = impl_->responder_cert->tbs().subject_public_key_info.public_key;
-        if (pub_key.size() != crypto_sign_PUBLICKEYBYTES) {
+        if (pub_key.size() != crypto::ed25519::PUBLICKEYBYTES) {
             return false;
         }
 
         // Verify Ed25519 signature
         int verify_result =
-            crypto_sign_verify_detached(response.signature.data(), message.data(), message.size(), pub_key.data());
+            crypto::ed25519::verify_detached(response.signature.data(), message.data(), message.size(), pub_key.data());
 
         return (verify_result == 0);
     }

@@ -9,7 +9,7 @@
 
 #include <iostream>
 #include <keylock/keylock.hpp>
-#include <keylock/verify/direct_transport.hpp>
+#include <keylock/cert/verify/direct_transport.hpp>
 
 int main(int argc, char *argv[]) {
     if (argc < 2) {

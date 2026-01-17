@@ -9,10 +9,9 @@
 #include <string>
 #include <vector>
 
-#include <sodium.h>
-
+#include "keylock/crypto/box_seal_x25519/seal.hpp"
 #include "keylock/crypto/context.hpp"
-#include "keylock/utils/sodium_utils.hpp"
+#include "keylock/hash/blake2b/blake2b.hpp"
 
 namespace keylock::io::key_exchange {
 
@@ -22,7 +21,7 @@ namespace keylock::io::key_exchange {
 
         constexpr uint32_t MAGIC = 0x4c4b5847; // "LKXG"
         constexpr uint8_t VERSION = 1;
-        constexpr size_t DIGEST_SIZE = crypto_generichash_BYTES;
+        constexpr size_t DIGEST_SIZE = 32; // BLAKE2b output size
 
         inline void append_u32(std::vector<uint8_t> &out, uint32_t value) {
             out.push_back(static_cast<uint8_t>(value & 0xFF));
@@ -47,7 +46,7 @@ namespace keylock::io::key_exchange {
                 body.insert(body.end(), ciphertext.begin(), ciphertext.end());
 
                 std::vector<uint8_t> digest(DIGEST_SIZE);
-                crypto_generichash(digest.data(), digest.size(), body.data(), body.size(), nullptr, 0);
+                keylock::hash::blake2b::hash(digest.data(), digest.size(), body.data(), body.size());
 
                 std::vector<uint8_t> serialized;
                 serialized.reserve(4 + 1 + 1 + 2 + 4 + 4 + DIGEST_SIZE + body.size());
@@ -96,7 +95,7 @@ namespace keylock::io::key_exchange {
 
                 std::vector<uint8_t> body(ptr, buffer.data() + buffer.size());
                 std::vector<uint8_t> computed(DIGEST_SIZE);
-                crypto_generichash(computed.data(), computed.size(), body.data(), body.size(), nullptr, 0);
+                keylock::hash::blake2b::hash(computed.data(), computed.size(), body.data(), body.size());
 
                 if (!std::equal(computed.begin(), computed.end(), stored_digest)) {
                     return std::nullopt;
@@ -114,15 +113,14 @@ namespace keylock::io::key_exchange {
     inline CryptoResult create_envelope(const std::vector<uint8_t> &payload,
                                         const std::vector<uint8_t> &recipient_public_key,
                                         const std::vector<uint8_t> &associated_data = {}) {
-        utils::ensure_sodium_init();
-
-        if (recipient_public_key.size() != crypto_box_PUBLICKEYBYTES) {
-            return {false, {}, "Recipient public key must be crypto_box_PUBLICKEYBYTES bytes"};
+        if (recipient_public_key.size() != crypto::box_seal::PUBLICKEYBYTES) {
+            return {false, {}, "Recipient public key must be PUBLICKEYBYTES bytes"};
         }
 
-        std::vector<uint8_t> ciphertext(payload.size() + crypto_box_SEALBYTES);
-        if (crypto_box_seal(ciphertext.data(), payload.data(), payload.size(), recipient_public_key.data()) != 0) {
-            return {false, {}, "crypto_box_seal failed"};
+        std::vector<uint8_t> ciphertext(payload.size() + crypto::box_seal::SEALBYTES);
+        if (crypto::box_seal::seal(ciphertext.data(), payload.data(), payload.size(), recipient_public_key.data()) !=
+            0) {
+            return {false, {}, "seal failed"};
         }
 
         detail::Envelope env;
@@ -144,18 +142,19 @@ namespace keylock::io::key_exchange {
             return {false, {}, "Invalid key exchange envelope"};
         }
 
-        if (recipient_private_key.size() != crypto_box_PUBLICKEYBYTES + crypto_box_SECRETKEYBYTES) {
+        if (recipient_private_key.size() != crypto::box_seal::PUBLICKEYBYTES + crypto::box_seal::SECRETKEYBYTES) {
             return {false, {}, "Recipient private key must contain public and secret material"};
         }
 
-        if (env->ciphertext.size() < crypto_box_SEALBYTES) {
+        if (env->ciphertext.size() < crypto::box_seal::SEALBYTES) {
             return {false, {}, "Ciphertext too short"};
         }
 
-        std::vector<uint8_t> plaintext(env->ciphertext.size() - crypto_box_SEALBYTES);
+        std::vector<uint8_t> plaintext(env->ciphertext.size() - crypto::box_seal::SEALBYTES);
         const uint8_t *pub = recipient_private_key.data();
-        const uint8_t *sec = recipient_private_key.data() + crypto_box_PUBLICKEYBYTES;
-        if (crypto_box_seal_open(plaintext.data(), env->ciphertext.data(), env->ciphertext.size(), pub, sec) != 0) {
+        const uint8_t *sec = recipient_private_key.data() + crypto::box_seal::PUBLICKEYBYTES;
+        if (crypto::box_seal::seal_open(plaintext.data(), env->ciphertext.data(), env->ciphertext.size(), pub, sec) !=
+            0) {
             return {false, {}, "Failed to decrypt key exchange envelope"};
         }
 

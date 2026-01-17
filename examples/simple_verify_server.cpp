@@ -13,8 +13,10 @@
 
 #include <iostream>
 #include <keylock/cert/builder.hpp>
+#include <keylock/crypto/rng/randombytes.hpp>
+#include <keylock/crypto/sign_ed25519/ed25519.hpp>
 #include <keylock/keylock.hpp>
-#include <keylock/verify/server.hpp>
+#include <keylock/cert/verify/server.hpp>
 
 int main() {
     std::cout << "keylock Request Processor Example\n";
@@ -37,9 +39,9 @@ int main() {
 
     // Optional: Generate and set signing key for response signatures
     std::cout << "Generating Ed25519 signing key...\n";
-    std::vector<uint8_t> pk(crypto_sign_PUBLICKEYBYTES);
-    std::vector<uint8_t> sk(crypto_sign_SECRETKEYBYTES);
-    crypto_sign_keypair(pk.data(), sk.data());
+    std::vector<uint8_t> pk(keylock::crypto::ed25519::PUBLICKEYBYTES);
+    std::vector<uint8_t> sk(keylock::crypto::ed25519::SECRETKEYBYTES);
+    keylock::crypto::ed25519::keypair(pk.data(), sk.data());
     processor.set_signing_key(sk);
 
     // Create a test certificate
@@ -102,7 +104,7 @@ int main() {
     verify_req.validation_timestamp = std::chrono::system_clock::now();
     verify_req.flags = keylock::verify::wire::RequestFlags::NONE;
     verify_req.nonce.resize(32);
-    randombytes_buf(verify_req.nonce.data(), verify_req.nonce.size());
+    keylock::crypto::rng::randombytes_buf(verify_req.nonce.data(), verify_req.nonce.size());
 
     auto verify_req_data = keylock::verify::wire::Serializer::serialize(verify_req);
     auto verify_resp_data = processor.process(keylock::verify::methods::CHECK_CERTIFICATE, verify_req_data);
@@ -149,7 +151,7 @@ int main() {
     revoked_verify_req.validation_timestamp = std::chrono::system_clock::now();
     revoked_verify_req.flags = keylock::verify::wire::RequestFlags::NONE;
     revoked_verify_req.nonce.resize(32);
-    randombytes_buf(revoked_verify_req.nonce.data(), revoked_verify_req.nonce.size());
+    keylock::crypto::rng::randombytes_buf(revoked_verify_req.nonce.data(), revoked_verify_req.nonce.size());
 
     auto revoked_verify_req_data = keylock::verify::wire::Serializer::serialize(revoked_verify_req);
     auto revoked_verify_resp_data =

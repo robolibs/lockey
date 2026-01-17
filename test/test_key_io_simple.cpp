@@ -4,7 +4,7 @@
 #include <fstream>
 
 TEST_SUITE("Key I/O Operations") {
-    const std::string test_dir = "/tmp/keylock_test_keys/";
+    const std::string test_dir = "/tmp/keylock_test_key_io_simple/";
 
     // Helper function to clean up test directory
     void cleanup_test_dir() {
