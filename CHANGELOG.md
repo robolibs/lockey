@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.0.15] - 2026-01-18
+
+### <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Centralize project configuration in PROJECT file
+
 ## [0.0.14] - 2026-01-18
 
 ### <!-- 7 -->⚙️ Miscellaneous Tasks
