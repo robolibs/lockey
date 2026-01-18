@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.0.14] - 2026-01-18
+
+### <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Refactor build system documentation
+- Remove xmake build system configuration
+
 ## [0.0.13] - 2026-01-18
 
 ### <!-- 7 -->⚙️ Miscellaneous Tasks

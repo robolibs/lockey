@@ -67,31 +67,6 @@ FetchContent_MakeAvailable(keylock)
 target_link_libraries(your_target PRIVATE keylock)
 ```
 
-### Recommended: XMake
-
-[XMake](https://xmake.io/) is a modern, fast, and cross-platform build system.
-
-**Install XMake:**
-```bash
-curl -fsSL https://xmake.io/shget.text | bash
-```
-
-**Add to your xmake.lua:**
-```lua
-add_requires("keylock")
-
-target("your_target")
-    set_kind("binary")
-    add_packages("keylock")
-    add_files("src/*.cpp")
-```
-
-**Build:**
-```bash
-xmake
-xmake run
-```
-
 ### Complete Development Environment (Nix + Direnv + Devbox)
 
 For the ultimate reproducible development environment:
@@ -123,7 +98,7 @@ cd keylock
 direnv allow  # Allow .envrc (one-time)
 # Environment automatically loaded! All dependencies available.
 
-xmake        # or cmake, make, etc.
+make         # build the project
 ```
 
 ## Usage
@@ -341,15 +316,11 @@ cmake -S . -B build \
 cmake --build build
 ctest --test-dir build --output-on-failure
 
-# Using XMake
-xmake config --tests=y --examples=y
-xmake build
-xmake test
 ```
 
 **Requirements:**
 - C++20 compiler (GCC 10+, Clang 11+)
-- CMake 3.14+ or XMake 2.5+
+- CMake 3.14+
 
 **Build Options:**
 | Option | Default | Description |
